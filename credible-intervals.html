@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HDI and ETI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout concept: a lab-bench instrument. Controls on the left like a test protocol, the live figure on the right,
+   short "what to notice" prompts underneath. One condensed athletic display face for names and numbers that matter. */
+:root {
+  --bg: #f4f6f4;
+  --surface: #ffffff;
+  --ink: #15201c;
+  --muted: #4d5a55;
+  --faint: #7b8782;
+  --line: #d3dbd7;
+  --grid: #e6ebe8;
+  --accent: #0d6a5a;
+  --accent-ink: #ffffff;
+  --accent-soft: #dcefe9;
+  --s1: #2a78d6;  /* prior / first series (blue) */
+  --s2: #eb6834;  /* data / likelihood / second series (orange) */
+  --s3: #1baf7a;  /* posterior / third series (aqua) */
+  --s3-ink: #0b7a52; /* aqua dark enough for text-adjacent marks on light */
+  --miss: #c2410c;
+  --font-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --font-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --radius: 6px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101513; --surface: #171e1b; --ink: #e6ece9; --muted: #a8b4af; --faint: #7f8b86; --line: #2e3a35; --grid: #222b27;
+    --accent: #4cc2a6; --accent-ink: #08201a; --accent-soft: #173029;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s3-ink: #3fd19c; --miss: #f08a5d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101513; --surface: #171e1b; --ink: #e6ece9; --muted: #a8b4af; --faint: #7f8b86; --line: #2e3a35; --grid: #222b27;
+  --accent: #4cc2a6; --accent-ink: #08201a; --accent-soft: #173029;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s3-ink: #3fd19c; --miss: #f08a5d;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.55; margin: 0; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 0 48px; }
+a { color: var(--accent); }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* header: app name plus a lane-line rule */
+.site { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; padding-block: 14px 10px; border-bottom: 2px dashed var(--line); }
+.site a.home { font-family: var(--font-display); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; font-size: .95rem; color: var(--muted); text-decoration: none; }
+.site a.home:hover { color: var(--accent); }
+.site nav { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .9rem; }
+.site nav a { color: var(--muted); text-decoration: none; }
+.site nav a[aria-current="page"] { color: var(--ink); font-weight: 700; text-decoration: underline; text-decoration-color: var(--accent); text-underline-offset: 4px; }
+
+.intro { padding-block: 22px 8px; max-width: 70ch; }
+.eyebrow { font-family: var(--font-display); text-transform: uppercase; letter-spacing: .08em; font-size: .95rem; color: var(--accent); font-weight: 600; margin: 0 0 2px; }
+h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(2.1rem, 5vw, 3.1rem); line-height: 1.02; margin: 0 0 10px; text-wrap: balance; letter-spacing: .005em; }
+h2 { font-family: var(--font-display); font-weight: 600; font-size: 1.45rem; margin: 0 0 8px; text-wrap: balance; letter-spacing: .01em; }
+h3 { font-size: 1rem; margin: 0 0 6px; }
+.lead { font-size: 1.08rem; color: var(--ink); margin: 0; }
+p { margin: 0 0 10px; }
+
+/* bench: controls + figure */
+.bench { display: grid; grid-template-columns: minmax(250px, 310px) minmax(0, 1fr); gap: 20px; margin-top: 18px; align-items: start; }
+@media (max-width: 820px) { .bench { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; min-width: 0; }
+.panel h2 { font-size: 1.15rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.controls { display: grid; gap: 14px; }
+.ctl { display: grid; gap: 4px; }
+.ctl label { font-size: .92rem; font-weight: 700; }
+.ctl .hint { font-size: .82rem; color: var(--muted); line-height: 1.4; }
+.pair { display: grid; grid-template-columns: minmax(0, 1fr) 6.2em; gap: 10px; align-items: center; }
+input[type="range"] { width: 100%; accent-color: var(--accent); min-height: 28px; }
+input[type="number"], select { font: inherit; font-family: var(--font-data); font-size: .92rem; padding: 5px 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--ink); width: 100%; min-height: 36px; }
+fieldset { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px 12px; margin: 0; display: grid; gap: 12px; }
+legend { font-size: .85rem; font-weight: 700; color: var(--muted); padding: 0 4px; text-transform: uppercase; letter-spacing: .05em; }
+.btns { display: flex; flex-wrap: wrap; gap: 8px; }
+button { font: inherit; font-size: .92rem; font-weight: 700; padding: 8px 14px; min-height: 40px; border-radius: 4px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button.win { border-color: var(--s3); }
+button.loss { border-color: var(--s2); }
+button:disabled { opacity: .5; cursor: default; }
+.presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.presets button { font-weight: 600; font-size: .84rem; padding: 5px 10px; min-height: 34px; }
+.check { display: flex; gap: 8px; align-items: flex-start; font-size: .9rem; }
+.check input { margin-top: 4px; accent-color: var(--accent); }
+
+/* figure */
+.figure { display: grid; gap: 12px; min-width: 0; }
+.chart { width: 100%; min-width: 0; position: relative; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart text { font-family: var(--font-body); }
+.axis text { fill: var(--muted); font-size: 12px; font-family: var(--font-data); }
+.axis-title { fill: var(--muted); font-size: 13px; }
+.axis line, .axis path { stroke: var(--line); }
+.gridline { stroke: var(--grid); stroke-width: 1; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: .88rem; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.swatch { width: 18px; height: 0; border-top: 3px solid; display: inline-block; }
+.swatch.dash { border-top-style: dashed; }
+.swatch.block { height: 12px; border-top: 0; border-radius: 2px; }
+.tip { position: absolute; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; font-size: .82rem; font-family: var(--font-data); line-height: 1.35; box-shadow: 0 2px 8px rgb(0 0 0 / .12); white-space: nowrap; z-index: 2; }
+
+/* readouts: the numbers students read off */
+.readouts { display: flex; flex-wrap: wrap; gap: 12px 14px; }
+/* rows share space evenly: five readouts sit 3 + 2, four sit 2 + 2 */
+.readout { border-top: 3px solid var(--line); padding-top: 6px; min-width: 0; flex: 1 1 calc(33.333% - 14px); }
+.readouts:has(> .readout:nth-child(4):last-child) .readout { flex-basis: calc(50% - 14px); }
+@media (max-width: 520px) { .readout { flex-basis: calc(50% - 14px); } }
+.readout.s1 { border-top-color: var(--s1); } .readout.s2 { border-top-color: var(--s2); } .readout.s3 { border-top-color: var(--s3); } .readout.miss { border-top-color: var(--miss); }
+.readout .k { font-size: .8rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.readout .v { font-family: var(--font-display); font-size: 1.7rem; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.readout .u { font-size: .85rem; color: var(--muted); font-family: var(--font-data); }
+.statement { background: var(--accent-soft); border-radius: var(--radius); padding: 10px 14px; font-size: .98rem; }
+
+/* below the bench */
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-top: 26px; }
+.notes > section { min-width: 0; }
+.notes ol, .notes ul { padding-left: 1.2em; margin: 0; display: grid; gap: 8px; }
+details { border-top: 1px solid var(--line); padding-top: 10px; }
+details summary { cursor: pointer; font-weight: 700; }
+details[open] summary { margin-bottom: 8px; }
+.math { font-family: var(--font-data); font-size: .88rem; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; overflow-x: auto; white-space: pre; }
+.credit { margin-top: 32px; padding-top: 14px; border-top: 2px dashed var(--line); font-size: .84rem; color: var(--muted); display: grid; gap: 6px; max-width: 90ch; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.tablewrap { overflow-x: auto; }
+table.data { border-collapse: collapse; font-size: .85rem; font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+table.data th, table.data td { border-bottom: 1px solid var(--line); padding: 4px 10px; text-align: right; }
+table.data th:first-child, table.data td:first-child { text-align: left; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* index: the apps as a ruled list, one row per app */
+.cards { display: grid; margin-top: 22px; border-top: 2px solid var(--ink); }
+.card { display: grid; grid-template-columns: minmax(0, 15rem) minmax(0, 1fr) minmax(0, 13rem); grid-template-rows: auto auto; column-gap: 24px; row-gap: 2px; align-items: baseline;
+  padding: 16px 4px; border-bottom: 1px solid var(--line); text-decoration: none; color: var(--ink); }
+.card:hover, .card:focus-visible { background: var(--surface); }
+.card:hover .card-name { color: var(--accent); }
+.card-sec { grid-column: 1 / -1; font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.card-name { font-family: var(--font-display); font-weight: 700; font-size: 1.75rem; line-height: 1.1; }
+.card-desc { color: var(--ink); }
+.card-unit { font-family: var(--font-data); font-size: .82rem; color: var(--muted); text-align: right; }
+@media (max-width: 760px) {
+  .card { grid-template-columns: minmax(0, 1fr); }
+  .card-unit { text-align: left; }
+}
+
+</style>
+</head>
+<body data-app="credible">
+<div class="wrap">
+<section class="intro">
+  <p class="eyebrow">Bayesian inference</p>
+  <h1>HDI and ETI</h1>
+  <p class="lead">Two hamstring injuries in a squad of 30 players: what is the injury risk? The posterior for a rare event is skewed, and the two common ways of summarising it as a 95% credible interval give different answers. The highest density interval (HDI) holds the most plausible values; the equal-tailed interval (ETI) cuts the same probability from each tail.</p>
+</section>
+
+<div class="bench">
+  <div class="panel controls">
+    <h2>Set up</h2>
+    <fieldset>
+      <legend>Data</legend>
+      <div class="ctl">
+        <label for="k">Players injured</label>
+        <div class="pair"><input type="range" id="k" min="0" max="60" step="1" value="2"><input type="number" id="k-n" min="0" max="60" step="1" aria-label="Players injured, number"></div>
+      </div>
+      <div class="ctl">
+        <label for="sq">Squad size</label>
+        <div class="pair"><input type="range" id="sq" min="5" max="60" step="1" value="30"><input type="number" id="sq-n" min="5" max="60" step="1" aria-label="Squad size, number"></div>
+      </div>
+      <div class="presets" role="group" aria-label="Data presets">
+        <button type="button" data-set="2,30">2 of 30 (skewed)</button>
+        <button type="button" data-set="15,30">15 of 30 (symmetric)</button>
+        <button type="button" data-set="0,25">0 of 25 (no injuries)</button>
+        <button type="button" data-set="27,30">27 of 30 (skewed left)</button>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Prior and interval</legend>
+      <div class="ctl">
+        <label for="a">Prior: injured (a)</label>
+        <div class="pair"><input type="range" id="a" min="0.5" max="20" step="0.5" value="1"><input type="number" id="a-n" min="0.5" max="20" step="0.5" aria-label="Prior injured, number"></div>
+      </div>
+      <div class="ctl">
+        <label for="b">Prior: not injured (b)</label>
+        <div class="pair"><input type="range" id="b" min="0.5" max="40" step="0.5" value="1"><input type="number" id="b-n" min="0.5" max="40" step="0.5" aria-label="Prior not injured, number"></div>
+        <p class="hint">a = b = 1 is a uniform prior on the injury risk.</p>
+      </div>
+      <div class="ctl">
+        <label for="lvl">Credible level (%)</label>
+        <div class="pair"><input type="range" id="lvl" min="50" max="99" step="1" value="95"><input type="number" id="lvl-n" min="50" max="99" step="1" aria-label="Credible level, number"></div>
+      </div>
+    </fieldset>
+  </div>
+
+  <div class="figure panel">
+    <div class="legend" aria-hidden="true">
+      <span><i class="swatch" style="border-color: var(--s3)"></i>Posterior</span>
+      <span><i class="swatch block" style="background: var(--s1); opacity: .4"></i>HDI</span>
+      <span><i class="swatch" style="border-color: var(--s2)"></i>ETI</span>
+    </div>
+    <div id="chart"></div>
+    <div class="readouts">
+      <div class="readout s1"><div class="k">HDI</div><div class="v" id="rHdi">–</div><div class="u" id="rHdiW">&nbsp;</div></div>
+      <div class="readout s2"><div class="k">ETI</div><div class="v" id="rEti">–</div><div class="u" id="rEtiW">&nbsp;</div></div>
+      <div class="readout"><div class="k">Left out below / above, HDI</div><div class="v" id="rHdiT">–</div><div class="u">probability outside each end</div></div>
+      <div class="readout"><div class="k">Left out below / above, ETI</div><div class="v" id="rEtiT">–</div><div class="u">always equal</div></div>
+    </div>
+    <p class="statement" id="statement"></p>
+  </div>
+</div>
+
+<div class="notes">
+  <section>
+    <h2>What to notice</h2>
+    <ol>
+      <li>With 2 of 30 injured, the HDI starts lower and is narrower than the ETI. The ETI excludes some low risks that are more plausible than values it includes near its upper end.</li>
+      <li>Choose 15 of 30. The posterior is symmetric and the two intervals are the same.</li>
+      <li>Choose 0 of 25. The most plausible risk is 0, so the HDI starts at 0. The ETI cannot include 0, because it always leaves some probability below its lower limit.</li>
+      <li>At each end of the HDI the curve is at the same height (the dotted line). That is what “highest density” means.</li>
+      <li>Both are valid 95% credible intervals. Say which one you report, especially for skewed quantities such as risks, rates and standard deviations.</li>
+    </ol>
+  </section>
+  <section>
+    <h2>How it works</h2>
+    <p>With a Beta(a, b) prior and k injured players out of n, the posterior for the injury risk is Beta(a + k, b + n − k). Both intervals are calculated exactly from this distribution.</p>
+    <div class="math">ETI = the 2.5th and 97.5th percentiles (for 95%)
+HDI = the narrowest interval that holds 95% of the posterior;
+      every value inside is more plausible than every value outside</div>
+    <details>
+      <summary>Which should I report?</summary>
+      <p>Software differs: brms and rstanarm, for example, report ETIs by default, whereas Kruschke’s ROPE approach uses the HDI. The HDI is not invariant to transformations (the HDI for a risk, converted to odds, is not the HDI for the odds), whereas the ETI is. For a roughly symmetric posterior the choice makes no practical difference.</p>
+    </details>
+  </section>
+</div>
+
+<footer class="credit"><p>Built to accompany Myers, T., Gallagher, I. J., &amp; Reading, J. <em>Understanding quantitative analysis in sport and exercise science: concepts, tools and approaches.</em> In E. Dolan &amp; J. Steele (Eds.), <em>Research Methods in Sport and Exercise Science: An Open-Access Primer.</em> Society for Transparency, Openness and Replication in Kinesiology.</p><p>Everything runs in your browser. Nothing you enter is saved or sent anywhere. The examples use realistic but invented numbers.</p></footer>
+</div>
+<script>
+/* Shared maths for the chapter apps. Plain JavaScript, no dependencies.
+   Works in the browser (window.Stats) and in Node (module.exports) for testing. */
+(function (root) {
+  'use strict';
+
+  // ---------- random numbers (seeded, so a "reset" can replay) ----------
+  function mulberry32(seed) {
+    let a = seed >>> 0;
+    const rng = function () {
+      a = (a + 0x6D2B79F5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    let spare = null;
+    rng.normal = function () {
+      if (spare !== null) { const s = spare; spare = null; return s; }
+      let u = 0;
+      while (u === 0) u = rng();
+      const v = rng(), m = Math.sqrt(-2 * Math.log(u));
+      spare = m * Math.sin(2 * Math.PI * v);
+      return m * Math.cos(2 * Math.PI * v);
+    };
+    return rng;
+  }
+
+  // ---------- special functions ----------
+  function lgamma(x) { // Lanczos (Numerical Recipes), x > 0
+    const c = [76.18009172947146, -86.50532032941677, 24.01409824083091, -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5];
+    let y = x, tmp = x + 5.5; tmp -= (x + 0.5) * Math.log(tmp);
+    let ser = 1.000000000190015;
+    for (let j = 0; j < 6; j++) ser += c[j] / ++y;
+    return -tmp + Math.log(2.5066282746310005 * ser / x);
+  }
+  function betacf(a, b, x) {
+    const MAXIT = 400, EPS = 3e-14, FPMIN = 1e-300;
+    const qab = a + b, qap = a + 1, qam = a - 1;
+    let c = 1, d = 1 - qab * x / qap;
+    if (Math.abs(d) < FPMIN) d = FPMIN; d = 1 / d; let h = d;
+    for (let m = 1; m <= MAXIT; m++) {
+      const m2 = 2 * m;
+      let aa = m * (b - m) * x / ((qam + m2) * (a + m2));
+      d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN; c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN; d = 1 / d; h *= d * c;
+      aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2));
+      d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN; c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN; d = 1 / d;
+      const del = d * c; h *= del; if (Math.abs(del - 1) < EPS) break;
+    }
+    return h;
+  }
+  function ibeta(x, a, b) { // regularised incomplete beta I_x(a, b)
+    if (x <= 0) return 0; if (x >= 1) return 1;
+    const bt = Math.exp(lgamma(a + b) - lgamma(a) - lgamma(b) + a * Math.log(x) + b * Math.log(1 - x));
+    return (x < (a + 1) / (a + b + 2)) ? bt * betacf(a, b, x) / a : 1 - bt * betacf(b, a, 1 - x) / b;
+  }
+
+  // ---------- normal ----------
+  function normPdf(x, m, s) { const z = (x - m) / s; return Math.exp(-0.5 * z * z) / (s * 2.5066282746310002); }
+  function normCdf(z) { // via the Numerical Recipes erfc approximation (fractional error < 1.2e-7)
+    const x = Math.abs(z) / Math.SQRT2, tt = 1 / (1 + 0.5 * x);
+    const r = tt * Math.exp(-x * x - 1.26551223 + tt * (1.00002368 + tt * (0.37409196 + tt * (0.09678418 + tt * (-0.18628806 +
+      tt * (0.27886807 + tt * (-1.13520398 + tt * (1.48851587 + tt * (-0.82215223 + tt * 0.17087277)))))))));
+    return z >= 0 ? 1 - 0.5 * r : 0.5 * r;
+  }
+  function normQuantile(p) { // Acklam, refined by one Halley step
+    if (p <= 0) return -Infinity; if (p >= 1) return Infinity;
+    const a = [-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02, 1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00],
+      b = [-5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02, 6.680131188771972e+01, -1.328068155288572e+01],
+      c = [-7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e+00, -2.549732539343734e+00, 4.374664141464968e+00, 2.938163982698783e+00],
+      d = [7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e+00, 3.754408661907416e+00];
+    const pl = 0.02425; let q, r, x;
+    if (p < pl) { q = Math.sqrt(-2 * Math.log(p)); x = (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1); }
+    else if (p > 1 - pl) { q = Math.sqrt(-2 * Math.log(1 - p)); x = -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1); }
+    else { q = p - 0.5; r = q * q; x = (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q / (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1); }
+    const e = normCdf(x) - p, u = e * 2.5066282746310002 * Math.exp(x * x / 2);
+    return x - u / (1 + x * u / 2);
+  }
+
+  // ---------- Student t ----------
+  function tCdf(t, df) {
+    const x = df / (df + t * t), tail = 0.5 * ibeta(x, df / 2, 0.5);
+    return t >= 0 ? 1 - tail : tail;
+  }
+  function tQuantile(p, df) { // bisection on the CDF
+    if (p === 0.5) return 0;
+    let lo = -1e3, hi = 1e3;
+    for (let i = 0; i < 200; i++) { const mid = (lo + hi) / 2; if (tCdf(mid, df) < p) lo = mid; else hi = mid; }
+    return (lo + hi) / 2;
+  }
+
+  // ---------- noncentral t CDF (for the confidence interval of Cohen's d) ----------
+  // P(T <= t | df, ncp) = integral over v of Phi(t * sqrt(v/df) - ncp) * f_chi2(v; df) dv,
+  // integrated on the scale u = sqrt(v/df) with Simpson's rule.
+  function nctCdf(t, df, ncp) {
+    const sd = Math.sqrt(1 / (2 * df)), lo = Math.max(1e-9, 1 - 12 * sd), hi = 1 + 14 * sd + 2 / Math.sqrt(df);
+    const N = 2000, h = (hi - lo) / N;
+    const logc = (df / 2) * Math.log(df / 2) - lgamma(df / 2) + Math.log(2);
+    let s = 0;
+    for (let i = 0; i <= N; i++) {
+      const u = lo + i * h;
+      // density of u = sqrt(chi2_df/df): 2 (df/2)^(df/2) / Gamma(df/2) u^(df-1) exp(-df u^2 / 2)
+      const f = Math.exp(logc + (df - 1) * Math.log(u) - df * u * u / 2);
+      const w = (i === 0 || i === N) ? 1 : (i % 2 ? 4 : 2);
+      s += w * f * normCdf(t * u - ncp);
+    }
+    return s * h / 3;
+  }
+  function solveMonotone(fn, target, lo, hi, increasing) {
+    for (let i = 0; i < 100; i++) {
+      const mid = (lo + hi) / 2, v = fn(mid);
+      if ((v < target) === increasing) lo = mid; else hi = mid;
+    }
+    return (lo + hi) / 2;
+  }
+  // Exact confidence interval for Cohen's d from two independent groups (pooled SD).
+  function dConfidenceInterval(d, n1, n2, level) {
+    const df = n1 + n2 - 2, k = Math.sqrt(n1 * n2 / (n1 + n2)), t = d * k, a = (1 - level) / 2;
+    const span = Math.abs(t) + 12 + 6 * Math.sqrt(1 + t * t / (2 * df));
+    // nctCdf decreases as ncp increases
+    const ncpLo = solveMonotone(ncp => nctCdf(t, df, ncp), 1 - a, t - span, t + span, false);
+    const ncpHi = solveMonotone(ncp => nctCdf(t, df, ncp), a, t - span, t + span, false);
+    return [ncpLo / k, ncpHi / k];
+  }
+
+  // ---------- beta distribution ----------
+  function betaLogPdf(x, a, b) {
+    if (x <= 0 || x >= 1) {
+      if ((x === 0 && a === 1) || (x === 1 && b === 1)) return lgamma(a + b) - lgamma(a) - lgamma(b);
+      if ((x === 0 && a < 1) || (x === 1 && b < 1)) return Infinity;
+      return -Infinity;
+    }
+    return lgamma(a + b) - lgamma(a) - lgamma(b) + (a - 1) * Math.log(x) + (b - 1) * Math.log(1 - x);
+  }
+  function betaPdf(x, a, b) { return Math.exp(betaLogPdf(x, a, b)); }
+  function betaCdf(x, a, b) { return ibeta(x, a, b); }
+  function betaQuantile(p, a, b) { let lo = 0, hi = 1; for (let i = 0; i < 80; i++) { const m = (lo + hi) / 2; if (ibeta(m, a, b) < p) lo = m; else hi = m; } return (lo + hi) / 2; }
+  // Highest density interval of a unimodal beta: the narrowest interval holding `level`.
+  function betaHDI(a, b, level) {
+    if (a <= 1 && b > 1) return [0, betaQuantile(level, a, b)];      // density highest at 0
+    if (b <= 1 && a > 1) return [betaQuantile(1 - level, a, b), 1];  // density highest at 1
+    // minimise width over the lower tail probability p in [0, 1 - level]
+    let lo = 0, hi = 1 - level;
+    const width = p => betaQuantile(p + level, a, b) - betaQuantile(p, a, b);
+    for (let i = 0; i < 80; i++) {
+      const m1 = lo + (hi - lo) / 3, m2 = hi - (hi - lo) / 3;
+      if (width(m1) < width(m2)) hi = m2; else lo = m1;
+    }
+    const p = (lo + hi) / 2;
+    return [betaQuantile(p, a, b), betaQuantile(p + level, a, b)];
+  }
+
+  const api = { mulberry32, lgamma, ibeta, normPdf, normCdf, normQuantile, tCdf, tQuantile, nctCdf, dConfidenceInterval,
+    betaPdf, betaLogPdf, betaCdf, betaQuantile, betaHDI };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Stats = api;
+})(typeof window !== 'undefined' ? window : this);
+
+</script>
+<script>
+/* Shared interface helpers: navigation, linked slider/number inputs, number formatting and a small SVG chart. */
+(function (root) {
+  'use strict';
+  const NS = 'http://www.w3.org/2000/svg';
+
+  const APPS = [
+    { id: 'updating', file: 'bayesian-updating.html', name: 'Bayesian updating' },
+    { id: 'prior', file: 'prior-to-posterior.html', name: 'Prior to posterior' },
+    { id: 'ci', file: 'confidence-intervals.html', name: 'Confidence intervals' },
+    { id: 'credible', file: 'credible-intervals.html', name: 'HDI and ETI' },
+    { id: 'effect', file: 'effect-sizes.html', name: 'Effect sizes' }
+  ];
+
+  const $ = (s, r) => (r || document).querySelector(s);
+
+  function header() {
+    const here = document.body.dataset.app;
+    const el = document.createElement('header');
+    el.className = 'site';
+    const home = document.createElement('a');
+    home.className = 'home'; home.href = 'index.html'; home.textContent = 'Sport Inference Lab';
+    const nav = document.createElement('nav');
+    nav.setAttribute('aria-label', 'Apps');
+    APPS.forEach(a => {
+      const l = document.createElement('a');
+      l.href = a.file; l.textContent = a.name;
+      if (a.id === here) l.setAttribute('aria-current', 'page');
+      nav.appendChild(l);
+    });
+    el.append(home, nav);
+    const wrap = $('.wrap');
+    wrap.insertBefore(el, wrap.firstChild);
+  }
+
+  // A range slider and a number box that stay in step. Returns a getter; calls onChange on every change.
+  function bindPair(id, onChange) {
+    const range = document.getElementById(id), num = document.getElementById(id + '-n');
+    const clamp = v => Math.min(+range.max, Math.max(+range.min, v));
+    range.addEventListener('input', () => { num.value = range.value; onChange(); });
+    num.addEventListener('change', () => {
+      let v = parseFloat(num.value);
+      if (!Number.isFinite(v)) v = parseFloat(range.value);
+      v = clamp(v); num.value = v; range.value = v; onChange();
+    });
+    num.value = range.value;
+    return {
+      get: () => parseFloat(range.value),
+      set: v => { range.value = v; num.value = range.value; }
+    };
+  }
+
+  function fmt(x, dp) {
+    if (!Number.isFinite(x)) return '–';
+    const s = x.toFixed(dp);
+    return (s.startsWith('-') && parseFloat(s) !== 0 ? '−' + s.slice(1) : s.replace(/^-/, ''));
+  }
+  function pct(p, dp) {
+    if (p > 0.999 && dp <= 1) return '> 99.9%';
+    if (p < 0.001 && dp <= 1) return '< 0.1%';
+    return fmt(100 * p, dp === undefined ? 1 : dp) + '%';
+  }
+
+  function niceTicks(lo, hi, n) {
+    const span = hi - lo; if (!(span > 0)) return [lo];
+    const raw = span / n, mag = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / mag;
+    const step = (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * mag;
+    const out = [];
+    for (let v = Math.ceil(lo / step - 1e-9) * step; v <= hi + 1e-9 * step; v += step) out.push(Math.abs(v) < step * 1e-9 ? 0 : v);
+    return out;
+  }
+  function decimalsFor(ticks) {
+    if (ticks.length < 2) return 0;
+    const step = Math.abs(ticks[1] - ticks[0]);
+    return Math.max(0, Math.min(4, -Math.floor(Math.log10(step) + 1e-9)));
+  }
+
+  function el(tag, attrs, parent, style) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (style) e.setAttribute('style', style);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+
+  /* chart(container, describe): describe(width) returns a spec:
+     { height, x:[lo,hi], y:[lo,hi], xlabel, ylabel, yTicks:false to hide the y axis numbers,
+       layers:[...], hover(xValue) -> {html, dots:[{x,y,color}]} | null, label: text for screen readers } */
+  function chart(container, describe) {
+    const box = document.createElement('div'); box.className = 'chart'; container.appendChild(box);
+    const tip = document.createElement('div'); tip.className = 'tip'; tip.hidden = true;
+    let spec = null, svg = null, sx = null, sy = null;
+
+    function render() {
+      const W = Math.max(280, Math.round(box.clientWidth || container.clientWidth || 600));
+      spec = describe(W);
+      const H = spec.height || Math.round(Math.min(380, Math.max(230, W * 0.56)));
+      const m = { l: spec.yTicks === false ? 16 : 52, r: 16, t: 14, b: 46 };
+      const iw = W - m.l - m.r, ih = H - m.t - m.b;
+      sx = v => m.l + (v - spec.x[0]) / (spec.x[1] - spec.x[0]) * iw;
+      sy = v => m.t + ih - (v - spec.y[0]) / (spec.y[1] - spec.y[0]) * ih;
+      box.innerHTML = '';
+      svg = el('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'img', 'aria-label': spec.label || '' }, box);
+      // grid and axes
+      const xt = spec.xTickValues || niceTicks(spec.x[0], spec.x[1], Math.max(3, Math.round(iw / 80)));
+      const xd = spec.xDecimals !== undefined ? spec.xDecimals : decimalsFor(xt);
+      const ax = el('g', { class: 'axis' }, svg);
+      if (spec.yTicks !== false) {
+        const yt = niceTicks(spec.y[0], spec.y[1], 4), yd = decimalsFor(yt);
+        yt.forEach(v => {
+          el('line', { x1: m.l, x2: m.l + iw, y1: sy(v), y2: sy(v), class: 'gridline' }, svg);
+          el('text', { x: m.l - 8, y: sy(v) + 4, 'text-anchor': 'end' }, ax).textContent = fmt(v, yd);
+        });
+      }
+      el('line', { x1: m.l, x2: m.l + iw, y1: m.t + ih, y2: m.t + ih }, ax, 'stroke: var(--faint)');
+      xt.forEach(v => {
+        if (v < spec.x[0] - 1e-12 || v > spec.x[1] + 1e-12) return;
+        el('line', { x1: sx(v), x2: sx(v), y1: m.t + ih, y2: m.t + ih + 5 }, ax, 'stroke: var(--faint)');
+        el('text', { x: sx(v), y: m.t + ih + 19, 'text-anchor': 'middle' }, ax).textContent = fmt(v, xd);
+      });
+      if (spec.xlabel) el('text', { x: m.l + iw / 2, y: H - 6, 'text-anchor': 'middle', class: 'axis-title' }, svg).textContent = spec.xlabel;
+      if (spec.ylabel && spec.yTicks !== false) el('text', { x: 14, y: m.t + ih / 2, 'text-anchor': 'middle', class: 'axis-title', transform: `rotate(-90 14 ${m.t + ih / 2})` }, svg).textContent = spec.ylabel;
+      // clip to plotting area
+      const id = 'c' + Math.random().toString(36).slice(2);
+      const cp = el('clipPath', { id }, el('defs', {}, svg));
+      el('rect', { x: m.l, y: m.t - 2, width: iw, height: ih + 2 }, cp);
+      const g = el('g', { 'clip-path': `url(#${id})` }, svg);
+      const top = el('g', {}, svg);
+      (spec.layers || []).forEach(L => drawLayer(L, L.unclipped ? top : g, { m, iw, ih, W, H }));
+      // hover layer
+      if (spec.hover) {
+        const cross = el('line', { y1: m.t, y2: m.t + ih, visibility: 'hidden' }, svg, 'stroke: var(--faint); stroke-dasharray: 3 3');
+        const dotsG = el('g', {}, svg);
+        const hit = el('rect', { x: m.l, y: m.t, width: iw, height: ih, fill: 'transparent' }, svg, 'cursor: crosshair');
+        const move = ev => {
+          const r = svg.getBoundingClientRect();
+          const px = (ev.clientX - r.left) * (W / r.width), py = (ev.clientY - r.top) * (H / r.height);
+          const xv = spec.x[0] + (px - m.l) / iw * (spec.x[1] - spec.x[0]);
+          const yv = spec.y[0] + (m.t + ih - py) / ih * (spec.y[1] - spec.y[0]);
+          const h = spec.hover(xv, yv);
+          if (!h) { leave(); return; }
+          if (h.noCross) cross.setAttribute('visibility', 'hidden');
+          else { cross.setAttribute('x1', px); cross.setAttribute('x2', px); cross.setAttribute('visibility', 'visible'); }
+          dotsG.innerHTML = '';
+          (h.dots || []).forEach(d => { if (Number.isFinite(d.y)) el('circle', { cx: sx(d.x), cy: sy(Math.min(d.y, spec.y[1])), r: 4.5 }, dotsG, `fill: ${d.color}; stroke: var(--surface); stroke-width: 2`); });
+          tip.innerHTML = h.html; tip.hidden = false;
+          const bx = box.getBoundingClientRect();
+          let left = ev.clientX - bx.left + 14; const tw = tip.offsetWidth;
+          if (left + tw > bx.width) left = ev.clientX - bx.left - tw - 14;
+          tip.style.left = Math.max(0, left) + 'px'; tip.style.top = Math.max(0, ev.clientY - bx.top - 10) + 'px';
+        };
+        const leave = () => { cross.setAttribute('visibility', 'hidden'); dotsG.innerHTML = ''; tip.hidden = true; };
+        hit.addEventListener('pointermove', move); hit.addEventListener('pointerdown', move); hit.addEventListener('pointerleave', leave);
+      }
+      box.appendChild(tip);
+    }
+
+    function drawLayer(L, g, dim) {
+      const { m, ih } = dim;
+      const style = (L.style || '');
+      if (L.type === 'line' || L.type === 'area') {
+        const pts = L.points.filter(p => Number.isFinite(p[1]));
+        if (!pts.length) return;
+        const yClamp = v => Math.min(v, spec.y[1] * 1.5);
+        let d = pts.map((p, i) => (i ? 'L' : 'M') + sx(p[0]).toFixed(2) + ' ' + sy(yClamp(p[1])).toFixed(2)).join(' ');
+        if (L.type === 'area') {
+          const base = sy(L.base !== undefined ? L.base : 0);
+          d += ` L${sx(pts[pts.length - 1][0]).toFixed(2)} ${base} L${sx(pts[0][0]).toFixed(2)} ${base} Z`;
+          el('path', { d }, g, `fill: ${L.color}; fill-opacity: ${L.opacity || 0.25}; stroke: none; ${style}`);
+        } else {
+          el('path', { d, fill: 'none' }, g, `fill: none; stroke: ${L.color}; stroke-width: ${L.width || 2.5}; stroke-linejoin: round; ${L.dash ? 'stroke-dasharray: 7 5;' : ''} ${style}`);
+        }
+      } else if (L.type === 'vline') {
+        el('line', { x1: sx(L.x), x2: sx(L.x), y1: L.y0 !== undefined ? sy(L.y0) : m.t, y2: L.y1 !== undefined ? sy(L.y1) : m.t + ih }, g,
+          `stroke: ${L.color}; stroke-width: ${L.width || 1.5}; ${L.dash ? 'stroke-dasharray: 5 4;' : ''}`);
+      } else if (L.type === 'segment') {
+        el('line', { x1: sx(L.x0), x2: sx(L.x1), y1: sy(L.y0), y2: sy(L.y1) }, g,
+          `stroke: ${L.color}; stroke-width: ${L.width || 2}; stroke-linecap: round; ${L.dash ? 'stroke-dasharray: 5 4;' : ''} ${style}`);
+      } else if (L.type === 'point') {
+        el('circle', { cx: sx(L.x), cy: sy(L.y), r: L.r || 4 }, g, `fill: ${L.color}; stroke: var(--surface); stroke-width: ${L.ring === false ? 0 : 1.5}`);
+      } else if (L.type === 'cross') {
+        const cx = sx(L.x), cy = sy(L.y), r = L.r || 4;
+        el('path', { d: `M${cx - r} ${cy - r} L${cx + r} ${cy + r} M${cx - r} ${cy + r} L${cx + r} ${cy - r}` }, g, `stroke: ${L.color}; stroke-width: 2.2; fill: none`);
+      } else if (L.type === 'text') {
+        el('text', { x: sx(L.x) + (L.dx || 0), y: sy(L.y) + (L.dy || 0), 'text-anchor': L.anchor || 'start' }, g,
+          `fill: ${L.color || 'var(--ink)'}; font-size: ${L.size || 12.5}px; font-weight: ${L.weight || 600}; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round;`).textContent = L.text;
+      } else if (L.type === 'rect') {
+        const x0 = sx(L.x0), x1 = sx(L.x1), y0 = sy(L.y1), y1 = sy(L.y0);
+        el('rect', { x: Math.min(x0, x1), y: Math.min(y0, y1), width: Math.abs(x1 - x0), height: Math.abs(y1 - y0), rx: L.rx || 0 }, g,
+          `fill: ${L.color}; fill-opacity: ${L.opacity === undefined ? 1 : L.opacity}`);
+      }
+    }
+
+    let raf = 0;
+    const ro = new ResizeObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(render); });
+    ro.observe(box);
+    return { render };
+  }
+
+  // evenly spaced grid
+  function grid(lo, hi, n) { const out = new Array(n + 1); for (let i = 0; i <= n; i++) out[i] = lo + (hi - lo) * i / n; return out; }
+
+  root.UI = { APPS, $, header, bindPair, fmt, pct, chart, grid, niceTicks };
+  document.addEventListener('DOMContentLoaded', header);
+})(window);
+
+</script>
+<script>
+(function () {
+  'use strict';
+  const S = window.Stats, U = window.UI, $ = U.$;
+  const k = U.bindPair('k', fix), sq = U.bindPair('sq', fix);
+  const a = U.bindPair('a', update), b = U.bindPair('b', update), lvl = U.bindPair('lvl', update);
+
+  function fix() {
+    // players injured can never exceed the squad size
+    document.getElementById('k').max = sq.get(); document.getElementById('k-n').max = sq.get();
+    if (k.get() > sq.get()) k.set(sq.get());
+    update();
+  }
+
+  function model() {
+    const A = a.get() + k.get(), B = b.get() + sq.get() - k.get(), L = lvl.get() / 100;
+    const hdi = S.betaHDI(A, B, L);
+    const eti = [S.betaQuantile((1 - L) / 2, A, B), S.betaQuantile(1 - (1 - L) / 2, A, B)];
+    return { A, B, L, hdi, eti,
+      hdiBelow: S.betaCdf(hdi[0], A, B), hdiAbove: 1 - S.betaCdf(hdi[1], A, B),
+      mode: (A > 1 && B > 1) ? (A - 1) / (A + B - 2) : (A <= 1 ? 0 : 1) };
+  }
+
+  const chart = U.chart($('#chart'), W => {
+    const M = model();
+    // show the region that holds nearly all the posterior
+    const top = Math.min(1, Math.max(M.eti[1], M.hdi[1]) + 0.12 + 2.5 * Math.sqrt(M.A * M.B / ((M.A + M.B) ** 2 * (M.A + M.B + 1))));
+    const bottom = Math.max(0, Math.min(M.eti[0], M.hdi[0]) - 0.12 - 2.5 * Math.sqrt(M.A * M.B / ((M.A + M.B) ** 2 * (M.A + M.B + 1))));
+    const lo = bottom < 0.06 ? 0 : bottom, hi = top > 0.94 ? 1 : top;
+    const xs = U.grid(Math.max(lo, 1e-6), Math.min(hi, 1 - 1e-6), 900);
+    const dens = xs.map(x => [x, S.betaPdf(x, M.A, M.B)]);
+    const peak = Math.max(...dens.map(p => p[1]).filter(Number.isFinite));
+    const yTop = peak * 1.12, yBottom = -peak * 0.3;
+    const hdiArea = dens.filter(p => p[0] >= M.hdi[0] && p[0] <= M.hdi[1]);
+    const hL = S.betaPdf(Math.max(M.hdi[0], 1e-6), M.A, M.B), hR = S.betaPdf(Math.min(M.hdi[1], 1 - 1e-6), M.A, M.B);
+    const yH = -peak * 0.09, yE = -peak * 0.2;
+    const layers = [
+      { type: 'area', points: hdiArea, color: 'var(--s1)', opacity: 0.32 },
+      { type: 'line', points: dens, color: 'var(--s3)', width: 3 },
+      { type: 'vline', x: M.eti[0], y0: yE, y1: S.betaPdf(M.eti[0], M.A, M.B), color: 'var(--s2)', dash: true, width: 1.6 },
+      { type: 'vline', x: M.eti[1], y0: yE, y1: S.betaPdf(M.eti[1], M.A, M.B), color: 'var(--s2)', dash: true, width: 1.6 },
+      { type: 'segment', x0: M.hdi[0], x1: M.hdi[1], y0: yH, y1: yH, color: 'var(--s1)', width: 6 },
+      { type: 'segment', x0: M.eti[0], x1: M.eti[1], y0: yE, y1: yE, color: 'var(--s2)', width: 6 },
+      { type: 'text', x: M.hdi[1], y: yH, dx: 8, dy: 4, text: 'HDI', color: 'var(--ink)', size: 12 },
+      { type: 'text', x: M.eti[1], y: yE, dx: 8, dy: 4, text: 'ETI', color: 'var(--ink)', size: 12 }
+    ];
+    // equal-height line joining the HDI ends (only when both ends are inside (0, 1))
+    if (M.hdi[0] > 1e-4 && M.hdi[1] < 1 - 1e-4) layers.push({ type: 'segment', x0: M.hdi[0], x1: M.hdi[1], y0: (hL + hR) / 2, y1: (hL + hR) / 2, color: 'var(--s1)', width: 1.4, style: 'stroke-dasharray: 2 4' });
+    layers.push({ type: 'segment', x0: lo, x1: hi, y0: 0, y1: 0, color: 'var(--faint)', width: 1 });
+    return {
+      x: [lo, hi], y: [yBottom, yTop], yTicks: false,
+      xlabel: 'Injury risk (proportion of players injured in a season)', layers,
+      label: `Posterior for injury risk with HDI ${U.fmt(M.hdi[0], 3)} to ${U.fmt(M.hdi[1], 3)} and ETI ${U.fmt(M.eti[0], 3)} to ${U.fmt(M.eti[1], 3)}`,
+      hover: x => {
+        if (x <= 0 || x >= 1) return null;
+        const d = S.betaPdf(x, M.A, M.B);
+        return { html: `risk ${U.fmt(x, 3)}<br>density ${U.fmt(d, 2)}<br>in HDI: ${x >= M.hdi[0] && x <= M.hdi[1] ? 'yes' : 'no'}; in ETI: ${x >= M.eti[0] && x <= M.eti[1] ? 'yes' : 'no'}`,
+          dots: [{ x, y: d, color: 'var(--s3)' }] };
+      }
+    };
+  });
+
+  function update() {
+    const M = model(), lvlTxt = U.fmt(lvl.get(), 0) + '%';
+    const r3 = v => U.fmt(v, 3);
+    $('#rHdi').textContent = `${r3(M.hdi[0])} to ${r3(M.hdi[1])}`;
+    $('#rEti').textContent = `${r3(M.eti[0])} to ${r3(M.eti[1])}`;
+    $('#rHdiW').textContent = `width ${r3(M.hdi[1] - M.hdi[0])}`;
+    $('#rEtiW').textContent = `width ${r3(M.eti[1] - M.eti[0])}`;
+    $('#rHdiT').textContent = `${U.pct(M.hdiBelow, 1)} / ${U.pct(M.hdiAbove, 1)}`;
+    const tail = (1 - M.L) / 2;
+    $('#rEtiT').textContent = `${U.pct(tail, 1)} / ${U.pct(tail, 1)}`;
+    const diff = (M.eti[1] - M.eti[0]) - (M.hdi[1] - M.hdi[0]);
+    const inj = k.get(), n = sq.get();
+    $('#statement').textContent = (Math.abs(diff) < 0.0015
+      ? `With ${inj} of ${n} players injured, the posterior is close to symmetric, so the ${lvlTxt} HDI and ETI are practically the same.`
+      : `With ${inj} of ${n} players injured, the ${lvlTxt} HDI (${r3(M.hdi[0])} to ${r3(M.hdi[1])}) is ${r3(diff)} narrower than the ETI (${r3(M.eti[0])} to ${r3(M.eti[1])}). Both hold ${lvlTxt} of the posterior; they leave it out in different places.`)
+      + ` The most plausible risk is ${r3(M.mode)}.`;
+    chart.render();
+  }
+
+  document.querySelectorAll('[data-set]').forEach(btn => btn.addEventListener('click', () => {
+    const [kk, nn] = btn.dataset.set.split(',').map(Number); sq.set(nn); fix(); k.set(kk); update();
+  }));
+  fix();
+})();
+
+</script>
+</body>
+</html>
