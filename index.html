@@ -302,6 +302,9 @@ table.data th:first-child, table.data td:first-child { text-align: left; }
     const x = df / (df + t * t), tail = 0.5 * ibeta(x, df / 2, 0.5);
     return t >= 0 ? 1 - tail : tail;
   }
+  function tPdf(t, df) {
+    return Math.exp(lgamma((df + 1) / 2) - lgamma(df / 2) - 0.5 * Math.log(df * Math.PI) - (df + 1) / 2 * Math.log(1 + t * t / df));
+  }
   function tQuantile(p, df) { // bisection on the CDF
     if (p === 0.5) return 0;
     let lo = -1e3, hi = 1e3;
@@ -370,7 +373,7 @@ table.data th:first-child, table.data td:first-child { text-align: left; }
     return [betaQuantile(p, a, b), betaQuantile(p + level, a, b)];
   }
 
-  const api = { mulberry32, lgamma, ibeta, normPdf, normCdf, normQuantile, tCdf, tQuantile, nctCdf, dConfidenceInterval,
+  const api = { mulberry32, lgamma, ibeta, normPdf, normCdf, normQuantile, tCdf, tPdf, tQuantile, nctCdf, dConfidenceInterval,
     betaPdf, betaLogPdf, betaCdf, betaQuantile, betaHDI };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Stats = api;
 })(typeof window !== 'undefined' ? window : this);
@@ -465,7 +468,8 @@ table.data th:first-child, table.data td:first-child { text-align: left; }
   /* chart(container, describe): describe(width) returns a spec:
      { height, x:[lo,hi], y:[lo,hi], xlabel, ylabel, yTicks:false to hide the y axis numbers,
        xTickValues:[...] and xTickFormat(v) -> label, both optional (used for a log-scale axis),
-       layers:[...], hover(xValue) -> {html, dots:[{x,y,color}]} | null, label: text for screen readers } */
+       layers:[...], hover(xValue, yValue) -> {html, dots:[{x,y,color}]} | null, onClick(xValue, yValue) optional,
+       label: text for screen readers } */
   function chart(container, describe) {
     const box = document.createElement('div'); box.className = 'chart'; container.appendChild(box);
     const tip = document.createElement('div'); tip.className = 'tip'; tip.hidden = true;
@@ -531,6 +535,15 @@ table.data th:first-child, table.data td:first-child { text-align: left; }
         };
         const leave = () => { cross.setAttribute('visibility', 'hidden'); dotsG.innerHTML = ''; tip.hidden = true; };
         hit.addEventListener('pointermove', move); hit.addEventListener('pointerdown', move); hit.addEventListener('pointerleave', leave);
+        // optional click handler: spec.onClick(xValue, yValue)
+        if (spec.onClick) {
+          hit.style.cursor = 'pointer';
+          hit.addEventListener('click', ev => {
+            const r = svg.getBoundingClientRect();
+            const px = (ev.clientX - r.left) * (W / r.width), py = (ev.clientY - r.top) * (H / r.height);
+            spec.onClick(spec.x[0] + (px - m.l) / iw * (spec.x[1] - spec.x[0]), spec.y[0] + (m.t + ih - py) / ih * (spec.y[1] - spec.y[0]));
+          });
+        }
       }
       box.appendChild(tip);
     }

@@ -227,7 +227,22 @@ table.data th:first-child, table.data td:first-child { text-align: left; }
   </div>
 
   <div class="figure panel">
-    <h2>Where the p-values fall</h2>
+    <h2>One study up close</h2>
+    <p class="hint" style="margin:0">The curve is the null sampling distribution of t: what t would look like over many studies if the true change were zero. The study’s t is marked, and the shaded tails beyond it, on both sides, make up its p-value. Pick a study with the buttons or by clicking a dot in “The last 40 studies”.</p>
+    <div class="legend" aria-hidden="true">
+      <span><i class="swatch" style="border-color: var(--ink)"></i>Null distribution of t</span>
+      <span><i class="swatch block" id="pSwatch" style="background: var(--s2)"></i>p-value: area at least as far from 0 as this t</span>
+      <span><i class="swatch dash" style="border-color: var(--muted)"></i>Critical values for α</span>
+    </div>
+    <div id="nullChart"></div>
+    <div class="btns" role="group" aria-label="Choose a study">
+      <button type="button" id="prevStudy">&larr; Earlier study</button>
+      <button type="button" id="nextStudy">Later study &rarr;</button>
+      <button type="button" id="latestStudy">Latest</button>
+    </div>
+    <p class="statement" id="oneStatement" aria-live="polite"></p>
+
+    <h2 style="margin-top:10px">Where the p-values fall</h2>
     <div class="legend" aria-hidden="true">
       <span><i class="swatch block" style="background: var(--s2)"></i>Significant (p &lt; α)</span>
       <span><i class="swatch block" style="background: var(--s1)"></i>Not significant</span>
@@ -242,7 +257,7 @@ table.data th:first-child, table.data td:first-child { text-align: left; }
     </div>
     <p class="statement" id="statement"></p>
     <h2 style="margin-top:6px">The last 40 studies</h2>
-    <p class="hint" style="margin:0">Each dot is one study, newest at the top. The p-value scale is logarithmic, so each step to the left is ten times smaller. With p-hacking on, a grey line runs from where a study’s p started to where it ended.</p>
+    <p class="hint" style="margin:0">Each dot is one study, oldest at the top and newest at the bottom; click one to see it up close. The ringed dot is the study shown up close. The p-value scale is logarithmic, so each step to the left is ten times smaller. With p-hacking on, a grey line runs from where a study’s p started to where it ended.</p>
     <div id="dance"></div>
     <div class="tablewrap">
       <table class="data" id="tally">
@@ -258,6 +273,7 @@ table.data th:first-child, table.data td:first-child { text-align: left; }
   <section>
     <h2>What to notice</h2>
     <ol>
+      <li>Start with one study. Its t is the signal-to-noise ratio from the chapter: the mean change divided by its standard error. The p-value is the shaded area of the null distribution at or beyond that t, in both tails because the test is two-sided. If t falls past a critical value, the shaded area is smaller than α and the result is significant.</li>
       <li>The page opens with no true change. Run a few hundred studies. The p-values spread evenly from 0 to 1, so every bar sits near 5%. About 5% of studies are significant even though training does nothing: these are type I errors, at the rate α you chose (Table 1 in the chapter). When the null hypothesis is true, a p-value near 0.03 is no more likely than one near 0.83.</li>
       <li>Choose 1.7 cm (d = 0.5). The p-values pile up towards 0, and the share below α is the power: about 29% with 10 athletes. In the other 71% of studies a real effect gives p &gt; 0.05, so “not significant” does not mean “no effect”.</li>
       <li>Watch the last 40 studies. The truth and the design never change, yet p jumps from below 0.001 to above 0.5. Cumming (2008) called this the dance of the p-values: one p-value says little about what a repeat of the study would give.</li>
@@ -373,6 +389,9 @@ p-hacking: while p ≥ α and extra athletes remain,
     const x = df / (df + t * t), tail = 0.5 * ibeta(x, df / 2, 0.5);
     return t >= 0 ? 1 - tail : tail;
   }
+  function tPdf(t, df) {
+    return Math.exp(lgamma((df + 1) / 2) - lgamma(df / 2) - 0.5 * Math.log(df * Math.PI) - (df + 1) / 2 * Math.log(1 + t * t / df));
+  }
   function tQuantile(p, df) { // bisection on the CDF
     if (p === 0.5) return 0;
     let lo = -1e3, hi = 1e3;
@@ -441,7 +460,7 @@ p-hacking: while p ≥ α and extra athletes remain,
     return [betaQuantile(p, a, b), betaQuantile(p + level, a, b)];
   }
 
-  const api = { mulberry32, lgamma, ibeta, normPdf, normCdf, normQuantile, tCdf, tQuantile, nctCdf, dConfidenceInterval,
+  const api = { mulberry32, lgamma, ibeta, normPdf, normCdf, normQuantile, tCdf, tPdf, tQuantile, nctCdf, dConfidenceInterval,
     betaPdf, betaLogPdf, betaCdf, betaQuantile, betaHDI };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Stats = api;
 })(typeof window !== 'undefined' ? window : this);
@@ -536,7 +555,8 @@ p-hacking: while p ≥ α and extra athletes remain,
   /* chart(container, describe): describe(width) returns a spec:
      { height, x:[lo,hi], y:[lo,hi], xlabel, ylabel, yTicks:false to hide the y axis numbers,
        xTickValues:[...] and xTickFormat(v) -> label, both optional (used for a log-scale axis),
-       layers:[...], hover(xValue) -> {html, dots:[{x,y,color}]} | null, label: text for screen readers } */
+       layers:[...], hover(xValue, yValue) -> {html, dots:[{x,y,color}]} | null, onClick(xValue, yValue) optional,
+       label: text for screen readers } */
   function chart(container, describe) {
     const box = document.createElement('div'); box.className = 'chart'; container.appendChild(box);
     const tip = document.createElement('div'); tip.className = 'tip'; tip.hidden = true;
@@ -602,6 +622,15 @@ p-hacking: while p ≥ α and extra athletes remain,
         };
         const leave = () => { cross.setAttribute('visibility', 'hidden'); dotsG.innerHTML = ''; tip.hidden = true; };
         hit.addEventListener('pointermove', move); hit.addEventListener('pointerdown', move); hit.addEventListener('pointerleave', leave);
+        // optional click handler: spec.onClick(xValue, yValue)
+        if (spec.onClick) {
+          hit.style.cursor = 'pointer';
+          hit.addEventListener('click', ev => {
+            const r = svg.getBoundingClientRect();
+            const px = (ev.clientX - r.left) * (W / r.width), py = (ev.clientY - r.top) * (H / r.height);
+            spec.onClick(spec.x[0] + (px - m.l) / iw * (spec.x[1] - spec.x[0]), spec.y[0] + (m.t + ih - py) / ih * (spec.y[1] - spec.y[0]));
+          });
+        }
       }
       box.appendChild(tip);
     }
@@ -663,7 +692,8 @@ p-hacking: while p ≥ α and extra athletes remain,
   const BINS = 20, SHOW = 40, PMIN = 1e-4;   // histogram bins of width 0.05; dots in the dance panel; left edge of the log axis
   const HACK_SIMS = 10000;                   // simulated studies behind the long-run rate with p-hacking
   let rng = S.mulberry32(40);
-  let studies = [];           // { mean, sd, t, p, sig, p0, extra } for the current settings
+  let studies = [];           // { mean, sd, t, df, m, p, sig, p0, extra } for the current settings
+  let selIdx = null;          // study shown up close: an index into studies, or null for the latest
   const tally = new Map();    // settings key -> { label, n, sig, expected, approx }
   let timer = null;
 
@@ -678,6 +708,7 @@ p-hacking: while p ≥ α and extra athletes remain,
 
   function share(a, k) { return a === k ? '100%' : a === 0 ? '0%' : U.pct(a / k, 1); }   // observed share, exact at the ends
   function fmtP(p) { return p < 0.001 ? '< 0.001' : U.fmt(p, 3); }
+  function pIs(p) { return p < PMIN ? 'p < 0.0001' : p < 0.001 ? 'p < 0.001' : 'p = ' + U.fmt(p, 3); }   // "p = 0.042" or "p < 0.001"
   function key() { return [mu.get(), n.get(), alpha(), sigma.get(), hacking() ? extra.get() : 0].join('|'); }
   function label() {
     return `${U.fmt(mu.get(), 1)} cm, n = ${n.get()}, α = ${aText()}` +
@@ -712,7 +743,7 @@ p-hacking: while p ≥ α and extra athletes remain,
     const add = () => { const v = m0 + sd0 * r.normal(); sum += v; sq += v * v; m++; };
     const test = () => {
       const mean = sum / m, sd = Math.sqrt(Math.max(0, (sq - sum * sum / m) / (m - 1))), t = mean / (sd / Math.sqrt(m));
-      return { mean, sd, t, p: Math.min(1, 2 * (1 - S.tCdf(Math.abs(t), m - 1))) };
+      return { mean, sd, t, df: m - 1, m, p: Math.min(1, 2 * (1 - S.tCdf(Math.abs(t), m - 1))) };
     };
     for (let i = 0; i < k; i++) add();
     let res = test(); const p0 = res.p; let added = 0;
@@ -765,6 +796,8 @@ p-hacking: while p ≥ α and extra athletes remain,
     layers.push({ type: 'line', points: pts, color: 'var(--ink)', width: 1.6, dash: true });
     layers.push({ type: 'vline', x: alpha(), color: 'var(--ink)', width: 1.2, unclipped: true });
     layers.push({ type: 'text', x: alpha(), y: top, dx: 5, dy: 12, text: `α = ${aText()}`, color: 'var(--ink)', size: 12 });
+    const cs = studies[currentIndex()];
+    if (cs) layers.push({ type: 'point', x: cs.p, y: 0, r: 5, color: 'var(--ink)', unclipped: true });
     return {
       height: Math.round(Math.min(340, Math.max(230, W * 0.5))),
       x: [0, 1], y: [0, top], xlabel: 'p-value', ylabel: 'Share of studies (%)', layers,
@@ -779,14 +812,70 @@ p-hacking: while p ≥ α and extra athletes remain,
     };
   });
 
+  // ---------- one study up close: the null distribution of t ----------
+  function currentIndex() { return studies.length ? (selIdx === null ? studies.length - 1 : selIdx) : -1; }
+  const nullChart = U.chart($('#nullChart'), W => {
+    const s = studies[currentIndex()];
+    if (!s) return { x: [-4.5, 4.5], y: [0, 0.45], yTicks: false, xlabel: 't', layers: [], label: 'No study run yet.' };
+    const df = s.df, tc = S.tQuantile(1 - alpha() / 2, df), T = Math.abs(s.t);
+    const xmax = Math.max(4.5, Math.min(T, 8) + 0.8, tc + 0.8), ymax = S.tPdf(0, df) * 1.22;
+    const f = x => S.tPdf(x, df), curve = (a, b) => U.grid(a, b, 240).map(x => [x, f(x)]);
+    const col = s.sig ? 'var(--s2)' : 'var(--s1)', layers = [];
+    layers.push({ type: 'area', points: curve(-xmax, xmax), color: 'var(--faint)', opacity: 0.12 });
+    layers.push({ type: 'area', points: curve(tc, xmax), color: 'var(--muted)', opacity: 0.16 }, { type: 'area', points: curve(-xmax, -tc), color: 'var(--muted)', opacity: 0.16 });
+    if (T < xmax) layers.push({ type: 'area', points: curve(T, xmax), color: col, opacity: 0.6 }, { type: 'area', points: curve(-xmax, -T), color: col, opacity: 0.6 });
+    layers.push({ type: 'line', points: curve(-xmax, xmax), color: 'var(--ink)', width: 2 });
+    [-tc, tc].forEach(v => layers.push({ type: 'vline', x: v, color: 'var(--muted)', width: 1.3, dash: true }));
+    layers.push({ type: 'text', x: xmax, y: ymax, dx: -4, dy: 13, anchor: 'end', text: `critical values ±${U.fmt(tc, 2)}`, color: 'var(--muted)', size: 11.5, weight: 400 });
+    if (T < xmax) {
+      layers.push({ type: 'vline', x: s.t, color: 'var(--ink)', width: 2.2, y0: 0, y1: ymax * 0.78 });
+      layers.push({ type: 'segment', x0: -s.t, x1: -s.t, y0: 0, y1: ymax * 0.5, color: 'var(--ink)', width: 1, dash: true });
+      layers.push({ type: 'text', x: s.t, y: ymax * 0.78, dy: -6, anchor: s.t >= 0 ? 'start' : 'end', dx: s.t >= 0 ? -4 : 4, text: `t = ${U.fmt(s.t, 2)}`, color: 'var(--ink)', size: 13 });
+    } else {
+      layers.push({ type: 'text', x: s.t > 0 ? xmax : -xmax, y: ymax * 0.3, dx: s.t > 0 ? -4 : 4, anchor: s.t > 0 ? 'end' : 'start', text: s.t > 0 ? `t = ${U.fmt(s.t, 2)} →` : `← t = ${U.fmt(s.t, 2)}`, color: 'var(--ink)', size: 13 });
+    }
+    return {
+      height: Math.round(Math.min(300, Math.max(210, W * 0.42))),
+      x: [-xmax, xmax], y: [0, ymax], yTicks: false,
+      xlabel: `t, if H₀ were true (t distribution with ${df} df)`, layers,
+      label: `Null distribution of t with ${df} degrees of freedom. This study has t = ${U.fmt(s.t, 2)}; the two tails beyond it have total area p = ${fmtP(s.p)}. Critical values are plus or minus ${U.fmt(tc, 2)}.`,
+      hover: x => {
+        if (Math.abs(x) > xmax) return null;
+        const pp = 2 * (1 - S.tCdf(Math.abs(x), df));
+        return { html: `t = ${U.fmt(x, 2)}<br>area at least this far from 0: ${pp < PMIN ? '< 0.0001' : fmtP(pp)}`, dots: [{ x, y: f(x), color: 'var(--ink)' }] };
+      }
+    };
+  });
+
+  function updateOne() {
+    const k = studies.length, i = currentIndex(), s = studies[i];
+    $('#prevStudy').disabled = i <= 0; $('#nextStudy').disabled = i < 0 || i >= k - 1; $('#latestStudy').disabled = selIdx === null;
+    if (!s) { $('#oneStatement').textContent = 'Run a study to see it here.'; nullChart.render(); dance.render(); return; }
+    const tc = S.tQuantile(1 - alpha() / 2, s.df);
+    $('#pSwatch').style.background = s.sig ? 'var(--s2)' : 'var(--s1)';
+    $('#oneStatement').textContent = `Study ${i + 1}${i === k - 1 ? ' (the latest)' : ''}: ${s.m} athletes, mean change ${U.fmt(s.mean, 2)} cm, SD ${U.fmt(s.sd, 2)} cm. ` +
+      `t = ${U.fmt(s.mean, 2)} / (${U.fmt(s.sd, 2)} / √${s.m}) = ${U.fmt(s.t, 2)}, with ${s.df} df. ` +
+      `If the true change were zero, a t at least this far from 0, in either direction, would happen with probability ${pIs(s.p)}` +
+      (Math.abs(s.t) > Math.max(4.5, Math.min(Math.abs(s.t), 8) + 0.8, tc + 0.8) ? ', a tail area too thin to see: t is beyond the edge of the chart. ' : '. ') +
+      (s.sig ? `That is below α = ${aText()}: t lies beyond the critical value of ±${U.fmt(tc, 2)}, so the result is called significant.`
+             : `That is not below α = ${aText()}: t lies inside the critical values of ±${U.fmt(tc, 2)}, so the result is not significant.`) +
+      (s.extra ? ` This study was p-hacked: it began with ${s.m - s.extra} athletes and ${pIs(s.p0)}, then ${s.extra} more were added.` : '') +
+      (mu.get() === 0 ? ' Here the null hypothesis really is true.' : ` Here the null hypothesis is false: the true change is ${U.fmt(mu.get(), 1)} cm.`);
+    nullChart.render(); dance.render(); hist.render();
+  }
+  $('#prevStudy').addEventListener('click', () => { const i = currentIndex(); if (i > 0) { selIdx = i - 1; updateOne(); } });
+  $('#nextStudy').addEventListener('click', () => { const i = currentIndex(); if (i < studies.length - 1) { selIdx = i + 1 === studies.length - 1 ? null : i + 1; updateOne(); } });
+  $('#latestStudy').addEventListener('click', () => { selIdx = null; updateOne(); });
+
   // ---------- the dance of the p-values ----------
   const LOGTICKS = [-4, -3, -2, -1, 0], LOGLAB = { '-4': '0.0001', '-3': '0.001', '-2': '0.01', '-1': '0.1', '0': '1' };
   const lp = p => Math.log10(Math.max(PMIN, p));
   const dance = U.chart($('#dance'), W => {
-    const shown = studies.slice(-SHOW), layers = [];
+    const shown = studies.slice(-SHOW), layers = [], first = studies.length - shown.length, cur = currentIndex();
     layers.push({ type: 'vline', x: Math.log10(alpha()), color: 'var(--ink)', width: 1.2, dash: true, unclipped: true });
     shown.forEach((s, i) => {
       const y = shown.length - i;
+      if (first + i === cur) layers.push({ type: 'point', x: s.p < PMIN ? -4 : lp(s.p), y, r: 7.5, color: 'var(--ink)', ring: false });
       layers.push({ type: 'segment', x0: -4, x1: lp(s.p), y0: y, y1: y, color: 'var(--grid)', width: 1 });
       if (s.extra > 0) layers.push({ type: 'segment', x0: lp(s.p0), x1: lp(s.p), y0: y, y1: y, color: 'var(--faint)', width: 2.2 });
       if (s.p < PMIN) layers.push({ type: 'cross', x: -4, y, r: 3.5, color: 'var(--s2)' });
@@ -798,13 +887,14 @@ p-hacking: while p ≥ α and extra athletes remain,
       x: [-4.1, 0.05], y: [0.3, SHOW + 2.2], yTicks: false,
       xTickValues: LOGTICKS, xTickFormat: v => LOGLAB[String(v)] || '',
       xlabel: 'p-value (log scale; × marks p below 0.0001)', layers,
+      onClick: (x, y) => { const idx = shown.length - Math.round(y); if (shown[idx]) { selIdx = first + idx; updateOne(); } },
       label: `p-values of the ${shown.length} most recent studies: ${shown.filter(s => s.sig).length} significant, smallest ${shown.length ? fmtP(Math.min(...shown.map(s => s.p))) : '–'}, largest ${shown.length ? fmtP(Math.max(...shown.map(s => s.p))) : '–'}.`,
       hover: (x, y) => {
         const idx = shown.length - Math.round(y), s = shown[idx];
         if (!s) return null;
         const num = studies.length - (shown.length - 1 - idx);
-        const hackLine = s.extra > 0 ? `<br>started at p = ${fmtP(s.p0)}; ${s.extra} athlete${s.extra === 1 ? '' : 's'} added` : '';
-        return { noCross: true, html: `study ${num}<br>mean change ${U.fmt(s.mean, 2)} cm, SD ${U.fmt(s.sd, 2)}<br>t = ${U.fmt(s.t, 2)}, p = ${s.p < PMIN ? '< 0.0001' : fmtP(s.p)}${hackLine}<br>${s.sig ? '<strong>significant</strong>' : 'not significant'}`,
+        const hackLine = s.extra > 0 ? `<br>started at ${pIs(s.p0)}; ${s.extra} athlete${s.extra === 1 ? '' : 's'} added` : '';
+        return { noCross: true, html: `study ${num}<br>mean change ${U.fmt(s.mean, 2)} cm, SD ${U.fmt(s.sd, 2)}<br>t = ${U.fmt(s.t, 2)}, ${pIs(s.p)}${hackLine}<br>${s.sig ? '<strong>significant</strong>' : 'not significant'}`,
           dots: [{ x: lp(s.p), y: Math.round(y), color: s.sig ? 'var(--s2)' : 'var(--s1)' }] };
       }
     };
@@ -844,18 +934,19 @@ p-hacking: while p ≥ α and extra athletes remain,
       tr.innerHTML = `<td>${t.label}</td><td>${t.n}</td><td>${share(t.sig, t.n)}</td><td>${t.approx ? '≈ ' : ''}${U.pct(t.expected, 1)}</td>`;
       body.appendChild(tr);
     });
-    hist.render(); dance.render();
+    updateOne();
   }
 
-  function settingsChanged() { studies = []; update(); }
+  function settingsChanged() { studies = []; selIdx = null; update(); }
   function stop() { clearInterval(timer); timer = null; $('#auto').textContent = 'Keep running'; }
 
-  $('#one').addEventListener('click', () => { runStudy(); update(); });
-  $('#hundred').addEventListener('click', () => { for (let i = 0; i < 100; i++) runStudy(); update(); });
-  $('#clear').addEventListener('click', () => { stop(); studies = []; tally.clear(); rng = S.mulberry32(40); update(); });
+  $('#one').addEventListener('click', () => { selIdx = null; runStudy(); update(); });
+  $('#hundred').addEventListener('click', () => { selIdx = null; for (let i = 0; i < 100; i++) runStudy(); update(); });
+  $('#clear').addEventListener('click', () => { stop(); studies = []; selIdx = null; tally.clear(); rng = S.mulberry32(40); update(); });
   $('#auto').addEventListener('click', () => {
     if (timer) { stop(); return; }
     $('#auto').textContent = 'Pause';
+    selIdx = null;
     timer = setInterval(() => { runStudy(); update(); if (studies.length >= 5000) stop(); }, 70);
   });
   document.querySelectorAll('[data-mu]').forEach(b => b.addEventListener('click', () => {
