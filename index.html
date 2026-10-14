@@ -159,10 +159,16 @@ table.data th:first-child, table.data td:first-child { text-align: left; }
 <section class="intro">
   <p class="eyebrow">Interactive companions to the chapter</p>
   <h1>Sport Inference Lab</h1>
-  <p class="lead">Five small apps for <em>Understanding quantitative analysis in sport and exercise science</em>. Each one takes a single idea from the chapter, puts it in a sport setting and lets you change the numbers and watch what happens. They run in your browser, work offline once opened, and nothing you enter leaves the page.</p>
+  <p class="lead">Six small apps for <em>Understanding quantitative analysis in sport and exercise science</em>. Each one takes a single idea from the chapter, puts it in a sport setting and lets you change the numbers and watch what happens. They run in your browser, work offline once opened, and nothing you enter leaves the page.</p>
 </section>
 
 <div class="cards">
+  <a class="card" href="p-values.html">
+    <span class="card-sec">Chapter: what is a p-value?</span>
+    <span class="card-name">p-values</span>
+    <span class="card-desc">Repeat the chapter’s broad-jump study many times and see how p-values behave with no effect and with a real one.</span>
+    <span class="card-unit">change in broad jump, cm</span>
+  </a>
   <a class="card" href="bayesian-updating.html">
     <span class="card-sec">Chapter: Bayesian inference</span>
     <span class="card-name">Bayesian updating</span>
@@ -200,13 +206,13 @@ table.data th:first-child, table.data td:first-child { text-align: left; }
     <h2>Using them in teaching</h2>
     <ul>
       <li>Each app opens with a worked example already loaded, followed by a short list of things to try.</li>
-      <li>The figures are drawn from exact calculations, apart from the confidence interval app, which simulates studies on purpose.</li>
+      <li>The figures are drawn from exact calculations, apart from the p-value and confidence interval apps, which simulate studies on purpose (their “expected” values are still exact).</li>
       <li>Each page is a single file. They can be linked from a virtual learning environment, saved for offline use, or opened from a USB stick. Keep them in one folder so the links between them work.</li>
     </ul>
   </section>
   <section>
     <h2>Acknowledgements</h2>
-    <p>The repeated-sampling display of confidence intervals and the several-ways view of Cohen’s d follow ideas popularised by Kristoffer Magnusson (<a href="https://rpsychologist.com/d3/ci/" target="_blank" rel="noopener noreferrer">confidence intervals<span class="sr-only"> (opens in a new tab)</span></a>; <a href="https://rpsychologist.com/cohend/" target="_blank" rel="noopener noreferrer">Cohen’s d<span class="sr-only"> (opens in a new tab)</span></a>). Sequential updating of a proportion is also shown in <a href="https://seeing-theory.brown.edu/bayesian-inference/index.html" target="_blank" rel="noopener noreferrer">Seeing Theory<span class="sr-only"> (opens in a new tab)</span></a> (Kunin and colleagues, Brown University). No code was copied from either; these apps were written independently.</p>
+    <p>The simulated p-value distribution, the repeated-sampling display of confidence intervals and the several-ways view of Cohen’s d follow ideas popularised by Kristoffer Magnusson (<a href="https://rpsychologist.com/d3/pdist/" target="_blank" rel="noopener noreferrer">p-value distribution<span class="sr-only"> (opens in a new tab)</span></a>; <a href="https://rpsychologist.com/d3/ci/" target="_blank" rel="noopener noreferrer">confidence intervals<span class="sr-only"> (opens in a new tab)</span></a>; <a href="https://rpsychologist.com/cohend/" target="_blank" rel="noopener noreferrer">Cohen’s d<span class="sr-only"> (opens in a new tab)</span></a>). Sequential updating of a proportion is also shown in <a href="https://seeing-theory.brown.edu/bayesian-inference/index.html" target="_blank" rel="noopener noreferrer">Seeing Theory<span class="sr-only"> (opens in a new tab)</span></a> (Kunin and colleagues, Brown University). The “dance of the p-values” is from Geoff Cumming (2008). No code was copied from any of these; these apps were written independently.</p>
   </section>
 </div>
 
@@ -377,6 +383,7 @@ table.data th:first-child, table.data td:first-child { text-align: left; }
   const NS = 'http://www.w3.org/2000/svg';
 
   const APPS = [
+    { id: 'pvalue', file: 'p-values.html', name: 'p-values' },
     { id: 'updating', file: 'bayesian-updating.html', name: 'Bayesian updating' },
     { id: 'prior', file: 'prior-to-posterior.html', name: 'Prior to posterior' },
     { id: 'ci', file: 'confidence-intervals.html', name: 'Confidence intervals' },
@@ -457,6 +464,7 @@ table.data th:first-child, table.data td:first-child { text-align: left; }
 
   /* chart(container, describe): describe(width) returns a spec:
      { height, x:[lo,hi], y:[lo,hi], xlabel, ylabel, yTicks:false to hide the y axis numbers,
+       xTickValues:[...] and xTickFormat(v) -> label, both optional (used for a log-scale axis),
        layers:[...], hover(xValue) -> {html, dots:[{x,y,color}]} | null, label: text for screen readers } */
   function chart(container, describe) {
     const box = document.createElement('div'); box.className = 'chart'; container.appendChild(box);
@@ -488,7 +496,7 @@ table.data th:first-child, table.data td:first-child { text-align: left; }
       xt.forEach(v => {
         if (v < spec.x[0] - 1e-12 || v > spec.x[1] + 1e-12) return;
         el('line', { x1: sx(v), x2: sx(v), y1: m.t + ih, y2: m.t + ih + 5 }, ax, 'stroke: var(--faint)');
-        el('text', { x: sx(v), y: m.t + ih + 19, 'text-anchor': 'middle' }, ax).textContent = fmt(v, xd);
+        el('text', { x: sx(v), y: m.t + ih + 19, 'text-anchor': 'middle' }, ax).textContent = spec.xTickFormat ? spec.xTickFormat(v) : fmt(v, xd);
       });
       if (spec.xlabel) el('text', { x: m.l + iw / 2, y: H - 6, 'text-anchor': 'middle', class: 'axis-title' }, svg).textContent = spec.xlabel;
       if (spec.ylabel && spec.yTicks !== false) el('text', { x: 14, y: m.t + ih / 2, 'text-anchor': 'middle', class: 'axis-title', transform: `rotate(-90 14 ${m.t + ih / 2})` }, svg).textContent = spec.ylabel;
