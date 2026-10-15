@@ -1,0 +1,1350 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Topic 17, Part 1: P-hacking</title>
+<style>
+/* Layout: one reading column (max 72rem) of numbered step panels under a sticky progress bar; simulations use a controls | results two-column grid that stacks below 860px. */
+:root{
+  --bg:#f3f5f8; --surface:#ffffff; --surface-2:#eef1f5; --ink:#1b2230; --muted:#566173; --line:#d5dbe3;
+  --accent:#0072B2; --on-accent:#ffffff; --head:#1F3A5F;
+  --verm:#D55E00; --grey:#7F7F7F; --green:#009E73; --purple:#B5589A; --amber:#C98A00; --sky:#56B4E9;
+  --predict-bg:#fff6d6; --predict-line:#e3cd7a; --callout-bg:#e9f5ef; --callout-line:#009E73; --story-bg:#eef3fa;
+  --rule-bg:#fcefe6; --review-bg:#f1eefb; --review-line:#7a62c9;
+  --ok:#0b6b4f; --warn:#9a3412; --hit-bg:#fde3d2; --right-bg:#e4f3ea; --wrong-bg:#fbe9e7;
+  --code-bg:#1e2430; --code-ink:#e8edf5; --grid:#e8ebf0; --zero:#8e98a5; --empty:#eceff3; --focus:#ffbf47;
+  --font-body:system-ui,-apple-system,"Segoe UI",Roboto,Calibri,Arial,sans-serif;
+  --font-head:"Avenir Next","Segoe UI Variable Display","Segoe UI",system-ui,-apple-system,Arial,sans-serif;
+  --font-mono:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11151b; --surface:#181e26; --surface-2:#202833; --ink:#e4e8ee; --muted:#a1abb8; --line:#323c49;
+    --accent:#56B4E9; --on-accent:#0a1824; --head:#a9c9ea;
+    --verm:#EE7A3A; --grey:#9aa3ad; --green:#2fbf94; --purple:#D98FBF; --amber:#E6A700; --sky:#56B4E9;
+    --predict-bg:#2a2412; --predict-line:#6b5a24; --callout-bg:#132820; --callout-line:#2fbf94; --story-bg:#17222f;
+    --rule-bg:#2b1d14; --review-bg:#211d33; --review-line:#9d88e6;
+    --ok:#5fd3a8; --warn:#f2a272; --hit-bg:#3a2417; --right-bg:#163126; --wrong-bg:#3a1d1a;
+    --code-bg:#0b0e13; --code-ink:#e8edf5; --grid:#26303c; --zero:#6d7886; --empty:#232b36; --focus:#ffbf47;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11151b; --surface:#181e26; --surface-2:#202833; --ink:#e4e8ee; --muted:#a1abb8; --line:#323c49;
+  --accent:#56B4E9; --on-accent:#0a1824; --head:#a9c9ea;
+  --verm:#EE7A3A; --grey:#9aa3ad; --green:#2fbf94; --purple:#D98FBF; --amber:#E6A700; --sky:#56B4E9;
+  --predict-bg:#2a2412; --predict-line:#6b5a24; --callout-bg:#132820; --callout-line:#2fbf94; --story-bg:#17222f;
+  --rule-bg:#2b1d14; --review-bg:#211d33; --review-line:#9d88e6;
+  --ok:#5fd3a8; --warn:#f2a272; --hit-bg:#3a2417; --right-bg:#163126; --wrong-bg:#3a1d1a;
+  --code-bg:#0b0e13; --code-ink:#e8edf5; --grid:#26303c; --zero:#6d7886; --empty:#232b36; --focus:#ffbf47;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{font-size:16px}
+body{margin:0;font-family:var(--font-body);color:var(--ink);background:var(--bg);line-height:1.55}
+a{color:var(--accent)}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.skip{position:absolute;left:-999px;top:0;background:var(--surface);color:var(--ink);padding:.5rem}
+.skip:focus{left:.5rem;z-index:100}
+h1,h2,h3{font-family:var(--font-head);text-wrap:balance;line-height:1.25}
+header.top{background:var(--head);color:var(--surface);padding-block:.9rem 1rem;padding-inline:16px}
+:root[data-theme="dark"] header.top{color:var(--bg)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) header.top{color:var(--bg)}}
+header.top .inner{max-width:72rem;margin:0 auto;display:grid;gap:.2rem}
+header.top .eyebrow{font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;opacity:.85}
+header.top h1{font-size:1.45rem;margin:0}
+header.top .nav{display:flex;justify-content:space-between;gap:.5rem;font-size:.82rem;opacity:.85;flex-wrap:wrap}
+nav.stepper{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--surface);border-bottom:1px solid var(--line)}
+nav.stepper ol{list-style:none;display:flex;gap:.3rem;margin:0 auto;padding:.45rem 16px;max-width:72rem;overflow-x:auto}
+nav.stepper li a{display:flex;align-items:center;gap:.35rem;padding:.3rem .65rem;border-radius:999px;text-decoration:none;color:var(--muted);font-size:.84rem;white-space:nowrap;border:1px solid var(--line)}
+nav.stepper li a .kind{font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;opacity:.8}
+nav.stepper li a.done{background:var(--right-bg);color:var(--ok);border-color:var(--ok)}
+nav.stepper li a.current{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+main{max-width:72rem;margin:0 auto;padding-block:1rem 3rem;padding-inline:16px}
+section.step{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:1rem 1.25rem;margin:1rem 0;overflow-wrap:anywhere}
+section.step>h2{margin:.2rem 0 .3rem;color:var(--head);font-size:1.35rem}
+.steptag{display:inline-block;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;font-weight:700;padding:.15rem .5rem;border-radius:4px;background:var(--surface-2);color:var(--muted);margin-bottom:.25rem}
+.steptag.core{background:var(--accent);color:var(--on-accent)}
+h3{color:var(--head);margin:1.2rem 0 .4rem;font-size:1.08rem}
+p{max-width:70ch}
+.lockmsg{display:none;background:var(--surface-2);border:1px dashed var(--grey);padding:.75rem;border-radius:8px;color:var(--muted)}
+.locked>.lockmsg{display:block}
+.locked .lockable{display:none}
+.card{border:1px solid var(--line);border-radius:8px;padding:.75rem 1rem;background:var(--surface);margin:.6rem 0}
+.story{background:var(--story-bg);border-color:transparent}
+.predict{background:var(--predict-bg);border:1px solid var(--predict-line)}
+.predict h3{margin-top:.2rem}
+.predict h3::before{content:"Predict first · ";font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-family:var(--font-body)}
+.callout{background:var(--callout-bg);border:1px solid var(--callout-line)}
+.callout .badge{font-weight:700;color:var(--ok)}
+.rule{background:var(--rule-bg);border:1px solid var(--verm)}
+.review{background:var(--review-bg);border:1px solid var(--review-line)}
+.review summary{color:var(--ink)}
+.review ul{margin:.4rem 0;padding-left:1.2rem}
+.review li{margin:.2rem 0}
+.note{font-size:.9rem;color:var(--muted)}
+.grid2{display:grid;grid-template-columns:minmax(260px,340px) 1fr;gap:1rem;align-items:start}
+.grid2b{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.grid2>*,.grid2b>*{min-width:0}
+#oneNull{max-width:640px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}
+.grid3>*{min-width:0}
+.school h4{margin:.2rem 0 .3rem;color:var(--head);font-family:var(--font-head)}
+.school p{font-size:.92rem}
+@media (max-width:980px){.grid3{grid-template-columns:1fr}}
+@media (max-width:860px){.grid2,.grid2b{grid-template-columns:1fr}}
+fieldset{border:1px solid var(--line);border-radius:8px;margin:.5rem 0;padding:.5rem .75rem;min-width:0}
+legend{font-weight:600;padding:0 .3rem}
+label{cursor:pointer}
+.opt{display:flex;gap:.5rem;align-items:flex-start;margin:.25rem 0;min-height:32px}
+.opt input{margin-top:.3rem;width:1.15rem;height:1.15rem;flex:none}
+.seg{display:flex;flex-wrap:wrap;gap:.35rem}
+.seg label{border:1px solid var(--line);border-radius:6px;padding:.4rem .6rem;background:var(--surface);min-height:44px;display:flex;align-items:center;gap:.35rem;font-size:.92rem}
+.seg input{width:1rem;height:1rem}
+.seg label:has(input:checked){border-color:var(--accent);background:var(--story-bg);font-weight:600}
+.seg label:has(input:disabled){opacity:.55}
+.switch{display:flex;align-items:center;gap:.6rem;min-height:44px;font-weight:600}
+.switch input{appearance:none;width:46px;height:26px;border-radius:13px;background:var(--line);position:relative;cursor:pointer;flex:none;transition:background .15s;margin:0}
+.switch input::before{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:var(--surface);transition:left .15s}
+.switch input:checked{background:var(--accent)}
+.switch input:checked::before{left:23px}
+.switch input:disabled{opacity:.45}
+.check{display:flex;align-items:center;gap:.5rem;min-height:40px}
+.sub{margin-left:1rem;padding-left:.75rem;border-left:2px solid var(--line)}
+.row{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin:.45rem 0}
+button{font:inherit;min-height:44px;padding:.45rem .9rem;border-radius:6px;cursor:pointer;border:2px solid var(--accent);background:var(--surface);color:var(--accent);font-weight:600}
+button.primary{background:var(--accent);color:var(--on-accent)}
+button.text{border:none;background:none;text-decoration:underline;min-height:auto;padding:.2rem}
+button:disabled{opacity:.45;cursor:not-allowed}
+input[type=range]{width:100%;min-height:32px;accent-color:var(--accent)}
+input[type=number],select,textarea{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:.3rem .4rem;min-height:40px}
+textarea{width:100%;min-height:70px}
+.val{font-variant-numeric:tabular-nums;font-weight:700}
+details{margin:.5rem 0}
+summary{cursor:pointer;font-weight:600;min-height:32px}
+table{border-collapse:collapse;width:100%;font-size:.88rem;font-variant-numeric:tabular-nums}
+th,td{border:1px solid var(--line);padding:.3rem .45rem;text-align:left;vertical-align:top}
+th{background:var(--surface-2)}
+td.flag{background:var(--hit-bg);font-weight:700}
+.tablewrap{overflow-x:auto;max-height:360px;overflow-y:auto}
+.meter{margin:.3rem 0 .8rem}
+.meter .lab{display:flex;justify-content:space-between;gap:.5rem;font-weight:600;align-items:baseline}
+.meter .big{font-size:1.6rem;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+.stale{opacity:.45}
+.msg{padding:.5rem .75rem;border-radius:6px;background:var(--surface-2);margin:.4rem 0}
+.log{font-family:var(--font-mono);font-size:.8rem;max-height:240px;overflow:auto;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:.4rem}
+.log div{white-space:nowrap}
+.log .hit{background:var(--hit-bg);font-weight:700}
+.log .skip{color:var(--muted)}
+.headline{font-size:1.05rem;font-weight:700;margin:.5rem 0}
+.chart{width:100%;height:auto;display:block}
+.scrollx{overflow-x:auto;border:1px solid var(--line);border-radius:6px}
+.legend{display:flex;flex-wrap:wrap;gap:.9rem;font-size:.85rem;margin:.3rem 0}
+.legend span{display:inline-flex;align-items:center;gap:.3rem}
+.result{border:2px solid var(--line);border-radius:8px;padding:.6rem .8rem}
+.result .est{font-size:1.4rem;font-weight:800;font-variant-numeric:tabular-nums}
+.tabs{display:flex;gap:.3rem;flex-wrap:wrap;margin-top:.5rem}
+.tabs button[aria-selected=true]{background:var(--accent);color:var(--on-accent)}
+.tabpanel{border:1px solid var(--line);border-radius:0 6px 6px 6px;padding:.6rem;margin-top:.3rem}
+pre.code{background:var(--code-bg);color:var(--code-ink);padding:.75rem;border-radius:6px;overflow-x:auto;font-size:.82rem;font-family:var(--font-mono)}
+.blur{filter:blur(4px);pointer-events:none;user-select:none}
+.overlay{position:relative}
+.overlay .padlock{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.1rem;background:color-mix(in srgb,var(--surface) 60%,transparent)}
+.ok{color:var(--ok);font-weight:700}
+.warn{color:var(--warn);font-weight:700}
+.mcq{border:1px solid var(--line);border-radius:8px;padding:.6rem .9rem;margin:.7rem 0}
+.fb{margin-top:.4rem;padding:.4rem .6rem;border-radius:6px}
+.fb.right{background:var(--right-bg)}
+.fb.wrong{background:var(--wrong-bg)}
+.tipbox{background:var(--surface-2);border:1px solid var(--purple);padding:.45rem .7rem;border-radius:6px;font-size:.92rem;margin:.5rem 0}
+.calc{background:var(--surface-2);border:1px solid var(--line);padding:.45rem .7rem;border-radius:6px;font-size:.92rem}
+.calc p,.calc li{max-width:75ch}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+canvas.grid{width:100%;max-width:520px;height:auto;image-rendering:pixelated;border:1px solid var(--line);border-radius:4px;display:block}
+.term{all:unset;cursor:help;border-bottom:1.5px dotted var(--accent);color:inherit;position:relative}
+.term:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.gpop{position:absolute;z-index:40;max-width:min(22rem,calc(100vw - 32px));background:var(--surface);color:var(--ink);border:1px solid var(--accent);border-radius:8px;padding:.5rem .7rem;font-size:.9rem;font-weight:400;line-height:1.45;box-shadow:0 6px 18px rgba(0,0,0,.18)}
+.gpop strong{display:block;margin-bottom:.15rem}
+dl.glossary{display:grid;grid-template-columns:minmax(9rem,14rem) 1fr;gap:.35rem 1rem;margin:.5rem 0}
+dl.glossary dt{font-weight:700}
+dl.glossary dd{margin:0}
+@media (max-width:600px){dl.glossary{grid-template-columns:1fr}dl.glossary dd{margin-bottom:.4rem}}
+ol.refs{padding-left:1.2rem}
+ol.refs li{margin:.35rem 0;max-width:80ch}
+.undo{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+@media (max-width:600px){
+  section.step{padding:.75rem}
+  .meters-sticky{position:sticky;top:calc(env(safe-area-inset-top,0px) + 46px);z-index:10;background:var(--surface);border-bottom:1px solid var(--line);padding:.3rem 0}
+  .meter .big{font-size:1.3rem}
+  .seg label{font-size:.88rem}
+  .card{padding:.6rem .7rem}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* v0.3.4: readable tables and a method-first introduction. */
+.data-table td.text-cell{white-space:normal;min-width:14rem;max-width:26rem}
+[hidden]{display:none!important}
+.approach-section{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:1.25rem;margin:1rem 0;scroll-margin-top:5rem}
+.approach-section>h2{color:var(--head)}
+.approach-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}
+.approach-cards article{padding:.25rem 1rem .6rem;border:1px solid var(--line);border-radius:8px}
+.approach-cards p{font-size:.95rem;margin:.65rem 0;overflow-wrap:normal}
+.plan-fields{display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-start;margin:.8rem 0}
+.plan-fields label{display:flex;flex-direction:column;gap:.3rem;flex:1 1 12rem;min-width:0}
+.plan-fields select,.plan-fields input{width:100%;max-width:100%;min-height:44px}
+.inference-plot{max-width:850px;margin:1rem 0}
+.inference-legend{display:flex;gap:.8rem;flex-wrap:wrap;font-size:.9rem;max-width:none}
+.prior-key{color:var(--muted)}.likelihood-key{color:var(--green)}.posterior-key{color:var(--purple)}
+#approachOutput h4,#oneApproach h4,#replicationApproach h4{font-size:1.15rem;color:var(--head)}
+table{table-layout:auto;overflow-wrap:normal;word-break:normal;font-size:.92rem;line-height:1.45}
+th,td{padding:.65rem .8rem;overflow-wrap:normal;word-break:normal;vertical-align:middle}
+th{min-width:7.5rem;white-space:normal;text-wrap:pretty;position:sticky;top:0;z-index:1}
+td{white-space:nowrap;font-variant-numeric:tabular-nums}
+td:first-child{white-space:normal;min-width:9rem}
+.data-table{min-width:100%;width:max-content}.data-table th{max-width:15rem}
+.summary-table{width:100%;min-width:30rem}.summary-table th:first-child,.summary-table td:first-child{width:42%}
+.summary-table td{white-space:normal;min-width:12rem}
+#hist{width:max-content;min-width:100%}#hist th:nth-child(4){min-width:11rem}
+.tablewrap{max-width:100%;width:100%;overflow:auto;overscroll-behavior-x:contain;border:1px solid var(--line);border-radius:5px;margin:.6rem 0}
+.tablewrap:focus-visible{outline:3px solid var(--focus)}
+.tablewrap table{border:0}
+#approachCompare{max-width:100%;min-height:44px;margin:.4rem}
+#oneNull{max-width:850px}
+@media(max-width:650px){.approach-cards{grid-template-columns:1fr}.approach-section{padding:.8rem}.plan-fields{display:grid;grid-template-columns:1fr}.meters-sticky{position:static}.inference-plot{overflow:auto}.inference-plot>svg{min-width:480px}.tablewrap{font-size:.9rem}}
+
+
+/* Three-page student edition */
+.partnav{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.5rem;font-size:.85rem}
+.partnav a{color:inherit;text-decoration:none;padding:.2rem .6rem;border-radius:999px;border:1px solid color-mix(in srgb,currentColor 45%,transparent);white-space:nowrap}
+.partnav a[aria-current=page]{background:color-mix(in srgb,currentColor 18%,transparent);font-weight:700}
+.research{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:.9rem 1.1rem;margin:1rem 0}
+.research .eyebrow{display:block;font-size:.74rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.research h3{margin:.25rem 0 .5rem}
+.research p{max-width:75ch}
+.research .cite{font-size:.82rem;color:var(--muted);overflow-wrap:anywhere}
+.nextpart{font-weight:700;font-size:1.05rem;margin-top:1.2rem}
+section.step>h2{text-wrap:pretty}
+
+/* Topic 16 comparison tables */
+#s1 .tablewrap,#sbs .tablewrap{max-height:none}
+#s1 .data-table td.text-cell,#sbs .data-table td.text-cell{min-width:12rem;max-width:22rem}
+#s1 .data-table th[scope=row]{position:static;min-width:9rem}
+
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="inner">
+    <div class="nav"><span><a href="t16-four-ways.html">&larr; Topic 16: Four ways to draw conclusions</a></span><span><a href="t17-part2.html">Part 2: Analytic flexibility, reproducibility and pre-registration &rarr;</a></span></div>
+    <span class="eyebrow">Statistics simulations for sport and exercise science · Topic 17: Open research · Part 1 of 3</span>
+    <h1>P-hacking: how flexible analysis creates false positives</h1>
+    <nav class="partnav" aria-label="Topics 16 and 17"><a href="index.html">All 24 topics</a> <a href="t16-four-ways.html">Topic 16: Four ways</a> <a href="t17-part1.html" aria-current="page">1 P-hacking</a> <a href="t17-part2.html">2 Flexibility and reproducibility</a> <a href="t17-part3.html">3 Replication and belief</a></nav>
+  </div>
+</header>
+<nav class="stepper" aria-label="Progress through this page">
+  <ol>
+    <li><a href="#s0" data-step="0">1 Hook</a></li>
+    <li><a href="#s1" data-step="1">2 From Topic 16</a></li>
+    <li><a href="#s2" data-step="2">3 Predict</a></li>
+    <li><a href="#s3" data-step="3">4 Be a p-hacker</a></li>
+    <li><a href="#s4" data-step="4">5 Real research and quiz</a></li>
+  </ol>
+</nav>
+<main id="main">
+<p class="note" id="routeNote">Part 1 of 3 · about 25 minutes. Nothing you enter on this page is saved or sent anywhere.</p>
+<section class="step" id="s0" aria-labelledby="h0">
+  <h2 id="h0">The miracle sled?</h2>
+  <div class="card story">
+    <p>A coach posts: <em>“Huge news from our squad! After 6 weeks of sled training our women jumped significantly higher (p = .03). Science says sled work makes you explosive!”</em></p>
+    <p>They measured lots of things. They tried a few ways of analysing them. One worked.</p>
+    <p>Should you change your training? By the end of this topic you will know what to ask before you believe a result like this.</p>
+  </div>
+  <fieldset><legend>How convinced are you?</legend>
+    <div class="seg" id="vote1">
+      <label><input type="radio" name="vote1" id="vote1a" value="Convinced"> Convinced</label>
+      <label><input type="radio" name="vote1" id="vote1b" value="Not sure"> Not sure</label>
+      <label><input type="radio" name="vote1" id="vote1c" value="Sceptical"> Sceptical</label>
+    </div>
+  </fieldset>
+</section>
+<section class="step" id="s1" aria-labelledby="h1r">
+  <h2 id="h1r">From Topic 16</h2>
+  <p>In <a href="t16-four-ways.html">Topic 16</a> you compared four ways to draw conclusions from a study: Fisher’s p-value as evidence, Neyman–Pearson’s decision rule, the NHST mixture and Bayesian estimation. Those examples used one planned analysis. This page shows how searching for a preferred result can distort conclusions.</p>
+</section>
+<section class="step" id="s2" aria-labelledby="h1p">
+  <h2 id="h1p">Predict first</h2>
+  <div class="card rule" id="ruleCard">
+    <strong>What counts as a “finding” in Simulation 1:</strong> any result with <em>p</em> &lt; .05. If sled training does nothing, an honest researcher who runs one planned test gets a finding like this <strong>5%</strong> of the time. That is α, the <button type="button" class="term" data-g="falsepos">false-positive</button> rate from Topic 15. <em>Part 3 uses a different rule for publication: there, only results where the sled group did better are published.</em>
+  </div>
+  <div class="card predict">
+    <h3>Prediction 1</h3>
+    <p>Imagine sled training does <strong>nothing at all</strong>. You test it on 5 different outcomes: sprint, jump, agility, fitness and effort. What is the chance that <strong>at least one</strong> of them gives p &lt; .05 just by luck?</p>
+    <fieldset><legend class="sr-only">Your prediction</legend>
+      <div class="seg" id="pred1">
+        <label><input type="radio" name="pred1" id="pred1a" value="5"> 5%</label>
+        <label><input type="radio" name="pred1" id="pred1b" value="10"> About 10%</label>
+        <label><input type="radio" name="pred1" id="pred1c" value="20"> About 20%</label>
+        <label><input type="radio" name="pred1" id="pred1d" value="40"> About 40%</label>
+        <label><input type="radio" name="pred1" id="pred1e" value="60"> 60% or more</label>
+      </div>
+    </fieldset>
+    <button class="primary" id="pred1Lock" disabled>Lock in my prediction</button>
+    <span id="pred1Msg" class="note" aria-live="polite"></span>
+  </div>
+</section>
+<section class="step locked" id="s3" aria-labelledby="h2s">
+  <span class="steptag">About 15 minutes</span>
+  <h2 id="h2s">Be a p-hacker</h2>
+  <p class="lockmsg">Lock in Prediction 1 above to unlock this simulation.</p>
+  <div class="lockable">
+  <p>In this lab there is <strong>no real effect</strong>: sled training and usual training are identical. Any “finding” is a false alarm. An honest researcher picks one outcome and one analysis in advance and is fooled 5% of the time. Your job is to be a <em>dishonest</em> researcher. Switch on the tricks, known as <button type="button" class="term" data-g="qrp">questionable research practices</button>, and see how often you can “find” an effect that is not there.</p>
+  <p class="note"><span aria-hidden="true">&#128274;</span> True effect: <strong>none (d = 0)</strong>. Squad: Northbridge University Performance Squad.</p>
+  <div class="grid2">
+    <div>
+      <h3>Your tricks</h3>
+      <div class="card">
+        <label class="switch"><input type="checkbox" id="qA"> Measure more outcomes</label>
+        <div class="sub" id="qAopts">
+          <label for="qK">Number of outcomes: <span class="val" id="qKv">5</span></label>
+          <input type="range" id="qK" min="2" max="5" step="1" value="5">
+          <p class="note" id="qKlist"></p>
+          <details><summary>Advanced: how related are the outcomes?</summary>
+            <label for="qR">Correlation r: <span class="val" id="qRv">0.5</span></label>
+            <input type="range" id="qR" min="0" max="0.9" step="0.1" value="0.5">
+          </details>
+        </div>
+        <label class="switch"><input type="checkbox" id="qB"> Remove “outliers” if it helps</label>
+        <div class="sub"><details><summary>Advanced: outlier cut-off</summary>
+          <div class="seg"><label><input type="radio" name="qZ" id="qZ2" value="2" checked> 2 SD</label><label><input type="radio" name="qZ" id="qZ25" value="2.5"> 2.5 SD</label><label><input type="radio" name="qZ" id="qZ3" value="3"> 3 SD</label></div>
+        </details></div>
+        <label class="switch"><input type="checkbox" id="qC"> Peek, then top up the sample</label>
+        <div class="sub" id="qCopts">
+          <p class="note">Test at 20 athletes per group. If it is not significant, add 10 more per group and test again, up to 40.</p>
+        </div>
+        <label class="switch"><input type="checkbox" id="qD"> Split by sex</label>
+        <div id="nWrap">
+          <label for="qN">Planned n per group: <span class="val" id="qNv">20</span></label>
+          <input type="range" id="qN" min="10" max="50" step="5" value="20">
+          <p class="note" id="nNote" hidden>Peeking sets the sample size (20, then 30, then 40 per group).</p>
+        </div>
+        <div class="row">
+          <label for="qBatch">Studies per run</label>
+          <select id="qBatch"><option value="100">100</option><option value="1000" selected>1,000</option><option value="5000">5,000</option></select>
+        </div>
+        <label class="check"><input type="checkbox" id="qAuto" checked> Update automatically when I change a trick</label>
+        <div class="row">
+          <button class="primary" id="runBatch">Run 1,000 studies</button>
+          <button id="runOne">Run one study</button>
+        </div>
+        <div class="row">
+          <button id="presetHonest">Honest researcher</button>
+          <button id="presetHacker">Full hacker</button>
+        </div>
+        <p class="note">Full hacker: 2 outcomes (sprint and jump), outlier removal, top-ups and a split by sex. These are close to the tricks in Simmons, Nelson and Simonsohn (2011).</p>
+        <details><summary>Advanced: random numbers</summary>
+          <label class="check"><input type="checkbox" id="qFix"> Fix the seed (same seed and settings give exactly the same results)</label>
+          <label for="qSeed">Seed</label> <input id="qSeed" type="number" value="2026" style="width:8rem">
+          <p class="note" id="seedUsed">Each run uses fresh random numbers unless you fix the seed.</p>
+        </details>
+      </div>
+    </div>
+    <div>
+      <div class="card predict" id="pred2card">
+        <h3>Prediction 2</h3>
+        <label for="pred2">If you use the <strong>Full hacker</strong> settings (2 outcomes, outlier removal, top-ups and a split by sex), what percentage of studies will “find” an effect? <span class="val" id="pred2v">30%</span></label>
+        <input type="range" id="pred2" min="0" max="100" step="1" value="30">
+        <div class="row"><button class="primary" id="pred2Lock">Lock in my prediction</button><span id="pred2Msg" class="note" aria-live="polite"></span></div>
+      </div>
+      <div class="meters-sticky" id="meters">
+        <div class="meter" id="meterP"></div>
+        <div class="meter" id="meterBF"></div>
+      </div>
+      <div id="phStatus" class="msg" aria-live="polite">Run 1,000 honest studies first: leave every trick switched off and press Run.</div>
+      <div id="pred1Feedback"></div>
+      <div id="pred2Feedback"></div>
+      <h3>Every simulated study</h3>
+      <canvas class="grid" id="grid" width="400" height="250" aria-hidden="true"></canvas>
+      <p class="note">Each square is one study (up to the first 1,000). Filled = “found an effect”; outline = nothing found.</p>
+      <details open><summary>Results history</summary>
+        <div class="tablewrap"><table id="hist"><thead><tr><th>Tricks</th><th>Outcomes</th><th>r</th><th>Looks</th><th>Studies</th><th>Finding (p &lt; .05)</th><th>BF₁₀ &gt; 3</th></tr></thead><tbody></tbody></table></div>
+        <div class="undo"><button class="text" id="clearHist">Clear history</button><span id="histUndo"></span></div>
+      </details>
+    </div>
+  </div>
+  <div class="card" id="oneStudy" hidden>
+    <h3>One study: the forking-path log</h3>
+    <div id="oneHeadline" class="headline" aria-live="polite"></div>
+    <div class="log" id="oneLog" tabindex="0" aria-label="List of every analysis tried"></div>
+    <div id="oneDots"></div>
+    <details><summary>Show the reported analysis as a table</summary><div class="tablewrap" id="oneTable"></div></details>
+    <h3 id="oneNullHead" hidden>Where does the p-value come from? The <button type="button" class="term" data-g="nulldist">null distribution</button></h3>
+    <div id="oneNull"></div>
+    <p class="note" id="oneNullNote"></p>
+  </div>
+  <div class="card tipbox" id="bayesNote">
+    <p><strong>Would <button type="button" class="term" data-g="bf">Bayes factors</button> save us?</strong> An honest Bayes factor rarely points to an effect when there is none (about 2% here). Choosing among outcomes, outlier rules and subgroups after seeing the data pushes it up as well (about 40% for the Full hacker). Peeking on its own moves it much less (about 4%). Stopping early is a different issue from searching through outcomes and subgroups: whether it is a problem for Bayes factors depends on the prior and on which property you care about (Hendriksen, de Heide and Grünwald, 2021, discuss this). The main problem is not the statistic. It is choosing the analysis after seeing the data.</p>
+  </div>
+  <div class="card callout" id="seqExplain">
+    <p><span class="badge">Peeking done properly.</span> Looking at data as they arrive is not wrong in itself. Clinical trials do it all the time. What makes it a questionable practice is doing it <em>unplanned</em>, with the usual p &lt; .05 at every look. A <strong>planned</strong> sequential design fixes the number and timing of looks in advance and uses <strong>adjusted thresholds</strong>, for example Pocock-type (the same strict threshold at every look) or O’Brien–Fleming-type (very strict early, close to .05 at the end). The false-positive rate then stays where you set it.</p>
+  </div>
+  <div class="card callout">
+    <p><span class="badge">&#8617; Back to Topic 1.</span> Every trick changed the question after you saw the data: a different outcome, a different group of people, a different sample size. In Topic 1 you fixed the <button type="button" class="term" data-g="estimand">estimand</button> before collecting any data. <button type="button" class="term" data-g="prereg">Pre-registration</button> means writing that plan down publicly, with a date stamp, before you start.</p>
+  </div>
+  <details class="calc"><summary>How is this calculated?</summary>
+    <ul>
+      <li>Each simulated study has two groups drawn from the same population, so the true effect is exactly zero. Outcomes are standardised (mean 0, SD 1) and correlated at r; each athlete is female or male with probability 0.5.</li>
+      <li>Every analysis is a Student’s independent-samples t-test, two-sided. A study counts as a “finding” if any analysis the switched-on tricks allow gives p &lt; .05.</li>
+      <li>Outlier removal tries each analysis twice: with all data, and after dropping values more than the cut-off in SDs from their own group’s mean. Subgroups with fewer than 3 per group are skipped.</li>
+      <li>The interval on the meter is a Wilson 95% confidence interval for the proportion of studies.</li>
+      <li>The Bayes factor is the default two-sample JZS Bayes factor (Cauchy prior, scale 0.707), as in JASP. A Bayesian “finding” is BF₁₀ &gt; 3 for any analysis.</li>
+      <li>The null distribution plots show the t distribution with the analysis’s degrees of freedom. The p-value is the area in both tails beyond the observed t.</li>
+    </ul>
+  </details>
+  <div class="card">
+    <h3>Checkpoint</h3>
+    <label for="cp1">Which single trick inflated the rate most? Why does testing more outcomes help a p-hacker less when the outcomes are closely related?</label>
+    <textarea id="cp1"></textarea>
+    <p class="note">For your own reflection. Nothing is saved.</p>
+  </div>
+  </div>
+</section>
+<section class="step" id="s4" aria-labelledby="h4c">
+  <h2 id="h4c">In real research, and check your understanding</h2>
+  <aside class="research">
+  <span class="eyebrow">From the literature: sport and exercise science</span>
+  <h3>Small samples, low power, and signs of publication bias</h3>
+  <p>Mesquida and colleagues examined studies published in the <em>Journal of Sports Sciences</em>. They note that an earlier study (Abt et al., 2020) had found a median sample size of 19. Across 89 studies they meta-analysed, they found some indication of publication bias, and the average observed power was low: 53% across significant and non-significant findings, and 61% for significant findings only. They also describe the reporting of sample size justifications as suboptimal.</p>
+  <p class="connect"><strong>How it connects:</strong> small samples usually have low power. Small samples alone do not raise the false-positive rate of a valid planned test. Each extra outcome, subgroup or peek is another chance for luck, and a study with low power that does reach p &lt; .05 tends to overstate the effect (Part 3).</p>
+  <p class="cite">Mesquida, C., Murphy, J., Lakens, D., &amp; Warne, J. (2023). Publication bias, statistical power and reporting practices in the <em>Journal of Sports Sciences</em>: Potential barriers to replicability. <em>Journal of Sports Sciences, 41</em>(16), 1507–1517. <a href="https://doi.org/10.1080/02640414.2023.2269357" target="_blank" rel="noopener noreferrer">https://doi.org/10.1080/02640414.2023.2269357<span class="sr-only"> (opens in a new tab)</span></a></p>
+</aside>
+  <aside class="research">
+  <span class="eyebrow">From the literature: sport and exercise</span>
+  <h3>Almost every hypothesis is supported</h3>
+  <p>Büttner and colleagues checked original research in sport and exercise medicine journals. Of 129 studies that stated a hypothesis, 106 (82.2%) reported that their hypothesis was supported. The authors argue that this is implausibly high, given the small samples typical of the field, and that questionable research practices are a likely reason. A registered report in kinesiology by Twomey and colleagues found a similar positive result rate (about 81%), with trial registration and accessible data rarely reported.</p>
+  <p class="connect"><strong>How it connects:</strong> if most published studies “find” what they hoped for, ask how many tricks from this page might have been used along the way.</p>
+  <p class="cite">Büttner, F., Toomey, E., McClean, S., Roe, M., &amp; Delahunt, E. (2020). Are questionable research practices facilitating new discoveries in sport and exercise medicine? The proportion of supported hypotheses is implausibly high. <em>British Journal of Sports Medicine, 54</em>(22), 1365–1371. <a href="https://doi.org/10.1136/bjsports-2019-101863" target="_blank" rel="noopener noreferrer">https://doi.org/10.1136/bjsports-2019-101863<span class="sr-only"> (opens in a new tab)</span></a> · Twomey, R., Yingling, V., Warne, J., et al. (2021). The nature of our literature: A registered report on the positive result rate and reporting practices in kinesiology. <em>Communications in Kinesiology, 1</em>(3). <a href="https://doi.org/10.51224/cik.v1i3.43" target="_blank" rel="noopener noreferrer">https://doi.org/10.51224/cik.v1i3.43<span class="sr-only"> (opens in a new tab)</span></a></p>
+</aside>
+  <h3>Quick quiz (not marked, nothing saved)</h3>
+  <div id="quiz"></div>
+  <details class="card"><summary>Key terms</summary><dl class="glossary" id="glossaryList"></dl></details>
+  <details class="card"><summary>Further reading</summary>
+    <ol class="refs">
+      <li>Simmons, J. P., Nelson, L. D., &amp; Simonsohn, U. (2011). False-positive psychology: Undisclosed flexibility in data collection and analysis allows presenting anything as significant. <em>Psychological Science, 22</em>(11), 1359–1366. <a href="https://doi.org/10.1177/0956797611417632" target="_blank" rel="noopener noreferrer">https://doi.org/10.1177/0956797611417632<span class="sr-only"> (opens in a new tab)</span></a></li>
+      <li>Gelman, A., &amp; Loken, E. (2014). The statistical crisis in science. <em>American Scientist, 102</em>(6), 460–465. <a href="https://doi.org/10.1511/2014.111.460" target="_blank" rel="noopener noreferrer">https://doi.org/10.1511/2014.111.460<span class="sr-only"> (opens in a new tab)</span></a></li>
+      <li>Perezgonzalez, J. D. (2015). Fisher, Neyman-Pearson or NHST? A tutorial for teaching data testing. <em>Frontiers in Psychology, 6</em>, 223. <a href="https://doi.org/10.3389/fpsyg.2015.00223" target="_blank" rel="noopener noreferrer">https://doi.org/10.3389/fpsyg.2015.00223<span class="sr-only"> (opens in a new tab)</span></a></li>
+      <li>Caldwell, A. R., Vigotsky, A. D., Tenan, M. S., et al. (2020). Moving sport and exercise science forward: A call for the adoption of more transparent research practices. <em>Sports Medicine, 50</em>(3), 449–459. <a href="https://doi.org/10.1007/s40279-019-01227-1" target="_blank" rel="noopener noreferrer">https://doi.org/10.1007/s40279-019-01227-1<span class="sr-only"> (opens in a new tab)</span></a></li>
+    </ol>
+  </details>
+  <p class="nextpart"><a href="t17-part2.html">Part 2: Analytic flexibility, reproducibility and pre-registration &rarr;</a></p>
+</section>
+<footer class="course-credit" style="margin:32px 0 16px;padding-top:16px;border-top:1px solid #9ba8a1;font-size:.85rem;line-height:1.6"><p>Sport Statistics Simulations — T. Myers, G. Abt &amp; M. Ditroilo, 2026.</p><p>Images are AI-generated illustrations for teaching, created with Gemini on 14–15 October 2026. They do not document actual studies or imply endorsement by any athlete, team, manufacturer or sporting organisation.</p></footer>
+</main>
+<div id="live" class="sr-only" aria-live="polite"></div>
+
+<script>
+/* Topic 16 simulation engine, v0.3 (plain JS, no dependencies).
+   Works in the browser (window.T15) and in Node (module.exports). */
+(function (root) {
+  'use strict';
+  // ---------- random numbers ----------
+  function mulberry32(seed) {
+    let a = seed >>> 0;
+    const rng = function () {
+      a = (a + 0x6D2B79F5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    let spare = null;
+    rng.normal = function () {
+      if (spare !== null) { const s = spare; spare = null; return s; }
+      let u = 0, v = 0;
+      while (u === 0) u = rng();
+      v = rng();
+      const m = Math.sqrt(-2 * Math.log(u));
+      spare = m * Math.sin(2 * Math.PI * v);
+      return m * Math.cos(2 * Math.PI * v);
+    };
+    rng.int = function (lo, hi) { return lo + Math.floor(rng() * (hi - lo + 1)); };
+    return rng;
+  }
+
+  // ---------- distributions ----------
+  function lgamma(x) {
+    const c = [76.18009172947146, -86.50532032941677, 24.01409824083091, -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5];
+    let y = x, tmp = x + 5.5; tmp -= (x + 0.5) * Math.log(tmp);
+    let ser = 1.000000000190015;
+    for (let j = 0; j < 6; j++) ser += c[j] / ++y;
+    return -tmp + Math.log(2.5066282746310005 * ser / x);
+  }
+  function betacf(a, b, x) {
+    const MAXIT = 300, EPS = 3e-14, FPMIN = 1e-300;
+    let qab = a + b, qap = a + 1, qam = a - 1, c = 1, d = 1 - qab * x / qap;
+    if (Math.abs(d) < FPMIN) d = FPMIN; d = 1 / d; let h = d;
+    for (let m = 1; m <= MAXIT; m++) {
+      const m2 = 2 * m;
+      let aa = m * (b - m) * x / ((qam + m2) * (a + m2));
+      d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN; c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN; d = 1 / d; h *= d * c;
+      aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2));
+      d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN; c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN; d = 1 / d;
+      const del = d * c; h *= del; if (Math.abs(del - 1) < EPS) break;
+    }
+    return h;
+  }
+  function ibeta(x, a, b) { // regularised incomplete beta I_x(a,b)
+    if (x <= 0) return 0; if (x >= 1) return 1;
+    const bt = Math.exp(lgamma(a + b) - lgamma(a) - lgamma(b) + a * Math.log(x) + b * Math.log(1 - x));
+    return (x < (a + 1) / (a + b + 2)) ? bt * betacf(a, b, x) / a : 1 - bt * betacf(b, a, 1 - x) / b;
+  }
+  function pTwoSided(t, df) { if (!isFinite(t)) return 0; return ibeta(df / (df + t * t), df / 2, 0.5); }
+  function tQuantile975(df) { // t such that two-sided p = .05
+    let lo = 0, hi = 50;
+    for (let i = 0; i < 80; i++) { const mid = (lo + hi) / 2; if (pTwoSided(mid, df) > 0.05) lo = mid; else hi = mid; }
+    return (lo + hi) / 2;
+  }
+
+  // ---------- JZS Bayes factor (two-sample, Cauchy prior scale r) ----------
+  const BF_M = 600, BF_LO = -12, BF_HI = 14, BF_H = (BF_HI - BF_LO) / (BF_M - 1);
+  const BF_U = new Float64Array(BF_M), BF_G = new Float64Array(BF_M);
+  for (let i = 0; i < BF_M; i++) { BF_U[i] = BF_LO + i * BF_H; BF_G[i] = Math.exp(BF_U[i]); }
+  const BF_CONST = new Float64Array(BF_M);
+  for (let i = 0; i < BF_M; i++) BF_CONST[i] = -0.5 * Math.log(2 * Math.PI) - 1.5 * BF_U[i] - 1 / (2 * BF_G[i]) + BF_U[i];
+  function jzsBF10(t, n1, n2, r) {
+    if (r === undefined) r = Math.SQRT1_2;
+    const N = n1 * n2 / (n1 + n2), nu = n1 + n2 - 2, r2 = r * r;
+    const logs = new Float64Array(BF_M); let mx = -Infinity;
+    for (let i = 0; i < BF_M; i++) {
+      const a = 1 + N * BF_G[i] * r2;
+      const v = -0.5 * Math.log(a) - (nu + 1) / 2 * Math.log1p(t * t / (a * nu)) + BF_CONST[i];
+      logs[i] = v; if (v > mx) mx = v;
+    }
+    let s = 0;
+    for (let i = 0; i < BF_M; i++) s += Math.exp(logs[i] - mx) * ((i === 0 || i === BF_M - 1) ? 0.5 : 1);
+    return Math.exp(mx + Math.log(s * BF_H) + (nu + 1) / 2 * Math.log1p(t * t / nu));
+  }
+
+  // ---------- small statistics helpers ----------
+  function meanSd(arr) {
+    const n = arr.length; let m = 0; for (const v of arr) m += v; m /= n;
+    let ss = 0; for (const v of arr) ss += (v - m) * (v - m);
+    return { n, mean: m, sd: Math.sqrt(ss / (n - 1)), ss };
+  }
+  function studentT(a, b) { // a = sled, b = control; positive t/d = sled better (standardised scale)
+    if (a.length < 3 || b.length < 3) return null;
+    const A = meanSd(a), B = meanSd(b), df = A.n + B.n - 2;
+    const sp = Math.sqrt((A.ss + B.ss) / df);
+    if (!(sp > 0)) return null;
+    const t = (A.mean - B.mean) / (sp * Math.sqrt(1 / A.n + 1 / B.n));
+    return { t, df, p: pTwoSided(t, df), d: (A.mean - B.mean) / sp, n1: A.n, n2: B.n };
+  }
+  function excludeOutliers(arr, z) {
+    const s = meanSd(arr);
+    return arr.filter(v => Math.abs(v - s.mean) <= z * s.sd);
+  }
+  function wilson(k, n) {
+    if (n === 0) return [0, 0];
+    const z = 1.959964, p = k / n, den = 1 + z * z / n, c = p + z * z / (2 * n), h = z * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n));
+    return [(c - h) / den, (c + h) / den];
+  }
+  function seD(d, n1, n2) { return Math.sqrt((n1 + n2) / (n1 * n2) + d * d / (2 * (n1 + n2))); }
+
+  // ---------- group-sequential boundaries ----------
+  /* v0.3: peeking = check at 20 per group, then top up by 10 at a time to 40 (three looks), close to the
+     "add 10 per cell" practice in Simmons et al. (2011). Planned boundaries for these looks were computed by
+     Monte Carlo (test/bounds.js, 400,000 null studies, Student t at each look) for an overall two-sided alpha of .05. */
+  const LOOKS_DEFAULT = [20, 30, 40];
+  const BOUNDS = {
+    pocock: [0.02433, 0.02433, 0.02433],
+    obf: [0.00420, 0.01941, 0.04292]
+  };
+
+  // ---------- Sim 1 / Sim 3: one simulated study ----------
+  const OUTCOME_NAMES = ['20 m sprint', 'Countermovement jump', '505 agility', 'Yo-Yo IR1 distance', 'Session RPE'];
+  function cholEqui(K, r) {
+    const L = []; for (let i = 0; i < K; i++) L.push(new Float64Array(K));
+    for (let i = 0; i < K; i++) for (let j = 0; j <= i; j++) {
+      let s = (i === j) ? 1 : r;
+      for (let k = 0; k < j; k++) s -= L[i][k] * L[j][k];
+      L[i][j] = (i === j) ? Math.sqrt(Math.max(s, 1e-12)) : s / L[j][j];
+    }
+    return L;
+  }
+  /* settings S: {n, K, r, outliers (bool), z, stopping: 'none'|'unplanned'|'pocock'|'obf', looks, subgroups (bool),
+                  delta, direction: 'any'|'positive', wantLog, wantBF}
+     A finding = two-sided p < threshold, and, when direction = 'positive', d > 0 (sled better).
+     Sim 1 uses direction 'any' (every significant result is a false positive under the null).
+     Sim 3 uses 'positive' (nobody publishes "sled training makes you slower"). */
+  function simulateStudy(rng, S, L) {
+    const K = S.K || 1;
+    const stopping = S.stopping || 'none';
+    const any = S.direction === 'any';
+    const looks = (stopping === 'none') ? [S.n || 20] : (S.looks || LOOKS_DEFAULT);
+    const nmax = looks[looks.length - 1];
+    if (!L) L = cholEqui(K, S.r === undefined ? 0.5 : S.r);
+    const delta = S.delta || 0;
+    const gen = () => {
+      const e = new Float64Array(K); for (let k = 0; k < K; k++) e[k] = rng.normal();
+      const z = new Float64Array(K);
+      for (let i = 0; i < K; i++) { let s = 0; for (let j = 0; j <= i; j++) s += L[i][j] * e[j]; z[i] = s; }
+      return { z, female: rng() < 0.5 };
+    };
+    const sled = [], ctrl = [];
+    for (let i = 0; i < nmax; i++) { const a = gen(); for (let k = 0; k < K; k++) a.z[k] += delta; sled.push(a); ctrl.push(gen()); }
+    const subsets = S.subgroups ? ['everyone', 'men', 'women'] : ['everyone'];
+    const outl = S.outliers ? [false, true] : [false];
+    const z = S.z || 2;
+    const res = { found: false, foundBF: false, nAnalyses: 0, reported: null, log: S.wantLog ? [] : null, stopN: null };
+    const pick = (arr, nl, k, sub) => {
+      const out = [];
+      for (let i = 0; i < nl; i++) {
+        const a = arr[i];
+        if (sub === 'men' && a.female) continue;
+        if (sub === 'women' && !a.female) continue;
+        out.push(a.z[k]);
+      }
+      return out;
+    };
+    for (let li = 0; li < looks.length; li++) {
+      const nl = looks[li];
+      const alpha = (stopping === 'pocock' || stopping === 'obf') ? BOUNDS[stopping][li] : 0.05;
+      for (let k = 0; k < K; k++) for (const o of outl) for (const sub of subsets) {
+        let a = pick(sled, nl, k, sub), b = pick(ctrl, nl, k, sub);
+        if (a.length < 3 || b.length < 3) { if (res.log) res.log.push({ look: nl, outcome: OUTCOME_NAMES[k], outl: o, sub, skipped: true }); continue; }
+        if (o) { a = excludeOutliers(a, z); b = excludeOutliers(b, z); }
+        const r = studentT(a, b);
+        if (!r) { if (res.log) res.log.push({ look: nl, outcome: OUTCOME_NAMES[k], outl: o, sub, skipped: true }); continue; }
+        res.nAnalyses++;
+        const dirOK = any || r.d > 0;
+        // BF10 < 1 whenever |t| <= 1.5 for every n used here (max 0.95 at 3 per group), so it cannot cross 3: skip it.
+        if (S.wantBF && !res.foundBF && dirOK && Math.abs(r.t) > 1.5 && jzsBF10(r.t, r.n1, r.n2) > 3) res.foundBF = true;
+        const hit = r.p < alpha && dirOK && !res.found;
+        if (res.log) res.log.push({ look: nl, outcome: OUTCOME_NAMES[k], outl: o, sub, p: r.p, d: r.d, t: r.t, df: r.df, n1: r.n1, n2: r.n2, alpha, hit });
+        if (hit) {
+          res.found = true; res.reported = { look: nl, k, outl: o, sub, ...r, a, b, alpha }; res.stopN = nl;
+          if (!S.wantBF) return res;
+        }
+      }
+      if (res.found && !S.wantBF) return res;
+    }
+    if (!res.stopN) res.stopN = nmax;
+    return res;
+  }
+  function makeBatch(S, nStudies, seed) { // iterator object so the UI can run it in chunks
+    const rng = mulberry32(seed), L = cholEqui(S.K || 1, S.r === undefined ? 0.5 : S.r);
+    const st = { done: 0, found: 0, foundBF: 0, flags: new Uint8Array(nStudies), n: nStudies };
+    st.step = function (m) {
+      const end = Math.min(st.n, st.done + m);
+      for (; st.done < end; st.done++) {
+        const r = simulateStudy(rng, S, L);
+        if (r.found) st.found++; if (r.foundBF) st.foundBF++;
+        st.flags[st.done] = r.found ? 1 : 0;
+      }
+      return st.done >= st.n;
+    };
+    return st;
+  }
+
+  // ---------- Sim 3: replications, posteriors and literatures ----------
+  const PRIOR_SD = 0.5; // prior for the true effect: normal(0, 0.5), i.e. most training effects between d = -1 and 1
+  function posterior(d, se, tau) {
+    tau = tau || PRIOR_SD;
+    const prec = 1 / (tau * tau) + 1 / (se * se), mean = (d / (se * se)) / prec, sd = Math.sqrt(1 / prec);
+    return { mean, sd, lo: mean - 1.96 * sd, hi: mean + 1.96 * sd };
+  }
+  function posteriorCombined(studies, tau) { // all studies estimate the same effect
+    tau = tau || PRIOR_SD;
+    let prec = 1 / (tau * tau), num = 0;
+    for (const s of studies) { prec += 1 / (s.se * s.se); num += s.d / (s.se * s.se); }
+    const mean = num / prec, sd = Math.sqrt(1 / prec);
+    return { mean, sd, lo: mean - 1.96 * sd, hi: mean + 1.96 * sd, k: studies.length };
+  }
+  function honestStudy(rng, n1, n2, delta) {
+    const a = [], b = [];
+    for (let i = 0; i < n1; i++) a.push(rng.normal() + delta);
+    for (let i = 0; i < n2; i++) b.push(rng.normal());
+    const r = studentT(a, b), se = seD(r.d, n1, n2);
+    return { ...r, se, lo: r.d - 1.96 * se, hi: r.d + 1.96 * se };
+  }
+  function replication(rng, n, delta) {
+    const r = honestStudy(rng, n, n, delta);
+    r.success = r.p < 0.05 && r.d > 0;
+    r.n1 = n; r.n2 = n;
+    r.post = posteriorExact([{ t: r.t, n1: n, n2: n }], PRIORS.normal);
+    return r;
+  }
+  /* A literature is a fixed set of k studies, each with its own uniform draw u.
+     Whether a non-significant study is published is decided later by u < P, so moving P
+     changes only the publication filter, never the studies themselves. */
+  function literature(rng, delta, k) {
+    k = k || 200; const studies = [];
+    for (let i = 0; i < k; i++) {
+      const n = rng.int(10, 50), r = honestStudy(rng, n, n, delta);
+      r.n = n; r.sigPos = r.p < 0.05 && r.d > 0; r.u = rng();
+      studies.push(r);
+    }
+    return studies;
+  }
+  function publishedTraditional(studies, pNonSig) { return studies.filter(s => s.sigPos || s.u < pNonSig); }
+  function metaFE(studies) {
+    let sw = 0, swd = 0;
+    for (const s of studies) { const w = 1 / (s.se * s.se); sw += w; swd += w * s.d; }
+    const est = swd / sw, se = Math.sqrt(1 / sw);
+    return { est, lo: est - 1.96 * se, hi: est + 1.96 * se, k: studies.length };
+  }
+
+
+  // ---------- exact likelihood of the standardised effect from a two-sample t statistic ----------
+  /* Under the usual two-sample model, t follows a noncentral t distribution with df = n1 + n2 - 2 and
+     noncentrality delta * sqrt(N), N = n1 n2 / (n1 + n2). Its density is computed by integrating over
+     s = sqrt(chi-square_df / df):  p(t | ncp) = integral of s * phi(t s - ncp) * f(s) ds.
+     This is the same likelihood that the JZS Bayes factor uses, so no normal approximation is needed. */
+  const SGRID_CACHE = {};
+  function sGrid(df) {
+    if (SGRID_CACHE[df]) return SGRID_CACHE[df];
+    const m = 320, lo = Math.log(1e-3), hi = Math.log(1 + 12 / Math.sqrt(2 * df)), h = (hi - lo) / (m - 1);
+    const s = new Float64Array(m), lw = new Float64Array(m);
+    const c = (df / 2) * Math.log(df) + Math.log(2) - (df / 2) * Math.log(2) - lgamma(df / 2) - 0.5 * Math.log(2 * Math.PI);
+    for (let i = 0; i < m; i++) {
+      const u = lo + i * h, si = Math.exp(u);
+      s[i] = si;
+      // log f(s) + log s (Jacobian of z = t s - ncp) + log(ds), with ds = s du; trapezoid end weights
+      lw[i] = c + (df - 1) * u - df * si * si / 2 + u + u + Math.log(h) + ((i === 0 || i === m - 1) ? Math.log(0.5) : 0);
+    }
+    return (SGRID_CACHE[df] = { s, lw, m });
+  }
+  function logNtDensity(t, df, ncp) {
+    const G = sGrid(df); let mx = -Infinity; const v = new Float64Array(G.m);
+    for (let i = 0; i < G.m; i++) { const z = t * G.s[i] - ncp; v[i] = G.lw[i] - 0.5 * z * z; if (v[i] > mx) mx = v[i]; }
+    let sum = 0; for (let i = 0; i < G.m; i++) sum += Math.exp(v[i] - mx);
+    return mx + Math.log(sum);
+  }
+  function ntDensity(t, df, ncp) { return Math.exp(logNtDensity(t, df, ncp)); }
+  function tDensity(t, df) { return Math.exp(lgamma((df + 1) / 2) - lgamma(df / 2) - 0.5 * Math.log(df * Math.PI) - (df + 1) / 2 * Math.log1p(t * t / df)); }
+  function tCrit(alpha, df) { // two-sided critical value
+    let lo = 0, hi = 60;
+    for (let i = 0; i < 90; i++) { const mid = (lo + hi) / 2; if (pTwoSided(mid, df) > alpha) lo = mid; else hi = mid; }
+    return (lo + hi) / 2;
+  }
+  function powerTwoSided(delta, n, alpha) { // power of a two-sided Student t-test, n per group
+    const df = 2 * n - 2, ncp = delta * Math.sqrt(n / 2), c = tCrit(alpha, df);
+    // Integrate conditional rejection probability over U = sqrt(chi-square / df).
+    // This avoids grid-boundary error from counting sampled t-density points.
+    const M = 2000, lo = 1e-9, hi = 1 + 14 / Math.sqrt(2 * df) + 2 / Math.sqrt(df), h = (hi-lo)/M;
+    const logc = (df/2)*Math.log(df/2)-lgamma(df/2)+Math.log(2);
+    let sum = 0;
+    for (let i=0;i<=M;i++) { const u=lo+i*h, density=Math.exp(logc+(df-1)*Math.log(u)-df*u*u/2);
+      const reject=normalCdf(-c*u-ncp)+normalCdf(ncp-c*u);
+      sum += (i===0||i===M ? 1 : i%2 ? 4 : 2)*density*reject;
+    }
+    return Math.max(0,Math.min(1,sum*h/3));
+  }
+
+  // ---------- posterior for the standardised effect (one or more studies sharing one true effect) ----------
+  const PRIORS = {
+    normal: { type: 'normal', mean: 0, sd: 0.5, label: 'Normal (mean 0, SD 0.5)' },
+    cauchy: { type: 'cauchy', r: Math.SQRT1_2, label: 'Cauchy (scale 0.707), the JASP default' }
+  };
+  function priorDensity(x, prior) {
+    if (prior.type === 'cauchy') { const z = x / prior.r; return 1 / (Math.PI * prior.r * (1 + z * z)); }
+    const m = prior.mean || 0, z = (x - m) / prior.sd;
+    return Math.exp(-0.5 * z * z) / (prior.sd * Math.sqrt(2 * Math.PI));
+  }
+  function studyLogLik(studies, delta) {
+    let ll = 0;
+    for (const st of studies) { const df = st.n1 + st.n2 - 2, N = st.n1 * st.n2 / (st.n1 + st.n2); ll += logNtDensity(st.t, df, delta * Math.sqrt(N)); }
+    return ll;
+  }
+  /* studies: [{t, n1, n2}]. Returns the posterior summary on an adaptive grid, plus the Savage-Dickey Bayes factor
+     BF10 = prior density at 0 / posterior density at 0 (= marginal likelihood / likelihood at 0). */
+  function posteriorExact(studies, prior) {
+    prior = prior || PRIORS.normal;
+    // rough normal approximation, used only to place the grid
+    let prec, num;
+    if (prior.type === 'normal') { prec = 1 / (prior.sd * prior.sd); num = (prior.mean || 0) * prec; } else { prec = 1 / 0.25; num = 0; }
+    for (const st of studies) { const d = st.t * Math.sqrt(1 / st.n1 + 1 / st.n2), se = seD(d, st.n1, st.n2); prec += 1 / (se * se); num += d / (se * se); }
+    const m0 = num / prec, s0 = Math.sqrt(1 / prec);
+    // Fine central grid plus expanding tails. A small subgroup with a large t can
+    // have a long, skewed posterior, especially with the Cauchy prior.
+    const nodes = new Map(); let mx = -Infinity;
+    const add = x => { if (nodes.has(x)) return nodes.get(x); const v = Math.log(priorDensity(x, prior)) + studyLogLik(studies, x); nodes.set(x, v); mx = Math.max(mx, v); return v; };
+    const left = m0 - 12 * s0, right = m0 + 12 * s0;
+    for (let j = 0; j <= 600; j++) add(left + j * (right - left) / 600);
+    add(0);
+    for (const direction of [-1, 1]) {
+      let edge = direction < 0 ? left : right, width = 6 * s0;
+      for (let pass = 0; pass < 14 && add(edge) > mx - 26; pass++) {
+        const next = edge + direction * width;
+        for (let j = 1; j <= 100; j++) add(edge + (next - edge) * j / 100);
+        edge = next; width *= 1.7;
+      }
+    }
+    const grid = Array.from(nodes.keys()).sort((a,b) => a-b), K = grid.length;
+    const scaled = grid.map(x => Math.exp(nodes.get(x) - mx));
+    let Z = 0, mean = 0, m2 = 0, pPos = 0;
+    const cumulative = new Float64Array(K);
+    for (let j = 1; j < K; j++) {
+      const a = grid[j-1], b = grid[j], width = b-a, fa = scaled[j-1], fb = scaled[j];
+      const area = width * (fa+fb) / 2;
+      Z += area; cumulative[j] = Z;
+      mean += width * (a*fa+b*fb) / 2;
+      m2 += width * (a*a*fa+b*b*fb) / 2;
+      if (a >= 0) pPos += area;
+    }
+    mean /= Z; m2 /= Z; pPos /= Z;
+    const q = p => { const target = p*Z; for(let j=1;j<K;j++) if(cumulative[j]>=target) {const f=(target-cumulative[j-1])/(cumulative[j]-cumulative[j-1]);return grid[j-1]+f*(grid[j]-grid[j-1]);} return grid[K-1]; };
+    const logMarg = mx + Math.log(Z);
+    const logL0 = studyLogLik(studies, 0);
+    return { mean, sd: Math.sqrt(Math.max(0, m2 - mean * mean)), lo: q(0.025), hi: q(0.975), pPos, bf10: Math.exp(logMarg - logL0), logMarg, prior, k: studies.length };
+  }
+  function normalCdf(z) { // Abramowitz-Stegun 7.1.26 via erf
+    const x = Math.abs(z) / Math.SQRT2, t = 1 / (1 + 0.3275911 * x);
+    const e = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+    return z >= 0 ? 0.5 * (1 + e) : 0.5 * (1 - e);
+  }
+  function posteriorDensityAt(xs, studies, post) {
+    return xs.map(x => priorDensity(x, post.prior) * Math.exp(studyLogLik(studies, x) - post.logMarg));
+  }
+
+  // ---------- Sim 2: analysis roulette ----------
+  /* v0.3: every outcome option is a way of summarising the 20 m sprint (the estimand's outcome).
+     v0.2's "10 m best of 3" answered a different question and is gone. Option indices 0 and 1 are
+     unchanged, so path IDs for those paths (including 5, 133 and 134) are the same as in v0.2. */
+  const FORKS = [
+    { key: 'population', label: 'Who is included', options: ['As randomised', 'Per-protocol (≥ 10 of 12 sessions)'] },
+    { key: 'outcome', label: '20 m sprint time', options: ['Best of 3 trials', 'Mean of 3 trials', 'Mean of the best 2 trials'] },
+    { key: 'outliers', label: 'Outliers', options: ['Keep all', 'Exclude > 2.5 SD', 'Exclude > 2 SD'] },
+    { key: 'missing', label: 'Missing post-tests', options: ['Complete cases', 'Baseline carried forward'] },
+    { key: 'estimator', label: 'Estimator', options: ['Post-test only', 'Change scores', 'ANCOVA (adjust for baseline)'] },
+    { key: 'test', label: 'Test', options: ['Assume equal spread', 'Allow unequal spread'] }
+  ];
+  const PREREG = [0, 0, 0, 0, 2, 0];          // option indices of the pre-registered path (path 5)
+  const PP_MIN = 10;
+  function pathId(idx) { let id = 0; for (let f = 0; f < FORKS.length; f++) id = id * FORKS[f].options.length + idx[f]; return id + 1; }
+  function idxFromPath(id) {
+    id -= 1; const idx = new Array(FORKS.length);
+    for (let f = FORKS.length - 1; f >= 0; f--) { const m = FORKS[f].options.length; idx[f] = id % m; id = Math.floor(id / m); }
+    return idx;
+  }
+  function summariseTrials(v, how) { // how: 0 best of 3, 1 mean of 3, 2 mean of best 2 (times: lower = better)
+    if (v.some(x => x === null || x === undefined || Number.isNaN(x))) return NaN;
+    if (how === 0) return Math.min(...v);
+    if (how === 1) return (v[0] + v[1] + v[2]) / 3;
+    const s = v.slice().sort((x, y) => x - y); return (s[0] + s[1]) / 2;
+  }
+  function rouletteAnalyse(data, idx) {
+    const [pop, outc, outl, miss, est, test] = idx;
+    const summ = (row, k) => summariseTrials([row[k + '20_t1'], row[k + '20_t2'], row[k + '20_t3']], outc);
+    let rows = data.map(r => ({ g: r.group === 'Control' ? 1 : 0, pre: summ(r, 'pre'), post: summ(r, 'post'), sessions: r.sessions, id: r.id }));
+    if (pop === 1) rows = rows.filter(r => r.sessions >= PP_MIN);
+    if (miss === 1) rows.forEach(r => { if (Number.isNaN(r.post)) r.post = r.pre; });
+    rows = rows.filter(r => !Number.isNaN(r.post));
+    const z = [null, 2.5, 2.0][outl];
+    const excluded = [];
+    if (z !== null) {
+      const val = r => est === 1 ? r.post - r.pre : r.post;
+      const keep = new Set(rows);
+      for (const gv of [0, 1]) {
+        const grp = rows.filter(r => r.g === gv), s = meanSd(grp.map(val));
+        for (const r of grp) if (Math.abs(val(r) - s.mean) > z * s.sd) { keep.delete(r); excluded.push(r.id); }
+      }
+      rows = rows.filter(r => keep.has(r));
+    }
+    const nS = rows.filter(r => r.g === 0).length, nC = rows.filter(r => r.g === 1).length;
+    let estv, se, df;
+    if (est === 0 || est === 1) {
+      const y = r => est === 0 ? r.post : r.post - r.pre;
+      const a = rows.filter(r => r.g === 1).map(y), b = rows.filter(r => r.g === 0).map(y);
+      const A = meanSd(a), B = meanSd(b);
+      estv = A.mean - B.mean;
+      if (test === 0) { df = A.n + B.n - 2; se = Math.sqrt((A.ss + B.ss) / df * (1 / A.n + 1 / B.n)); }
+      else { const va = A.sd * A.sd / A.n, vb = B.sd * B.sd / B.n; se = Math.sqrt(va + vb); df = (va + vb) * (va + vb) / (va * va / (A.n - 1) + vb * vb / (B.n - 1)); }
+    } else {
+      const X = rows.map(r => [1, r.g, r.pre]), y = rows.map(r => r.post), n = rows.length;
+      const XtX = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], Xty = [0, 0, 0];
+      for (let i = 0; i < n; i++) for (let a = 0; a < 3; a++) { Xty[a] += X[i][a] * y[i]; for (let b = 0; b < 3; b++) XtX[a][b] += X[i][a] * X[i][b]; }
+      const Inv = inv3(XtX), beta = [0, 1, 2].map(a => Inv[a][0] * Xty[0] + Inv[a][1] * Xty[1] + Inv[a][2] * Xty[2]);
+      const res = y.map((v, i) => v - (beta[0] * X[i][0] + beta[1] * X[i][1] + beta[2] * X[i][2]));
+      df = n - 3;
+      if (test === 0) { const s2 = res.reduce((s, e) => s + e * e, 0) / df; se = Math.sqrt(Inv[1][1] * s2); }
+      else {
+        const M = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+        for (let i = 0; i < n; i++) {
+          let h = 0; for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) h += X[i][a] * Inv[a][b] * X[i][b];
+          const w = res[i] * res[i] / ((1 - h) * (1 - h));
+          for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) M[a][b] += w * X[i][a] * X[i][b];
+        }
+        let v = 0; for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) v += Inv[1][a] * M[a][b] * Inv[b][1];
+        se = Math.sqrt(v);
+      }
+      estv = beta[1];
+    }
+    const t = estv / se, p = pTwoSided(t, df), q = tQuantile975(df);
+    return { path: pathId(idx), idx: idx.slice(), estimate: estv, se, lo: estv - q * se, hi: estv + q * se, t, df, p, nSled: nS, nCtrl: nC, excluded };
+  }
+  function inv3(m) {
+    const [a, b, c] = m[0], [d, e, f] = m[1], [g, h, i] = m[2];
+    const A = e * i - f * h, B = -(d * i - f * g), C = d * h - e * g, det = a * A + b * B + c * C;
+    return [[A / det, -(b * i - c * h) / det, (b * f - c * e) / det], [B / det, (a * i - c * g) / det, -(a * f - c * d) / det], [C / det, -(a * h - b * g) / det, (a * e - b * d) / det]];
+  }
+  function rouletteMultiverse(data) {
+    const out = []; const total = FORKS.reduce((p, f) => p * f.options.length, 1);
+    for (let id = 1; id <= total; id++) out.push(rouletteAnalyse(data, idxFromPath(id)));
+    return out;
+  }
+
+  const api = { mulberry32, pTwoSided, tQuantile975, jzsBF10, studentT, wilson, seD, cholEqui, simulateStudy, makeBatch,
+    honestStudy, replication, posterior, posteriorCombined, PRIOR_SD, literature, publishedTraditional, metaFE,
+    logNtDensity, ntDensity, tDensity, tCrit, powerTwoSided, PRIORS, priorDensity, posteriorExact, posteriorDensityAt, normalCdf,
+    FORKS, PREREG, PP_MIN, pathId, idxFromPath, summariseTrials, rouletteAnalyse, rouletteMultiverse,
+    OUTCOME_NAMES, LOOKS_DEFAULT, BOUNDS };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.T15 = api;
+})(typeof window !== 'undefined' ? window : this);
+
+</script>
+<script>
+/* Shared helpers, glossary, stepper, hook and Prediction 1. */
+(function () {
+'use strict';
+const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+const NS = 'http://www.w3.org/2000/svg';
+const COLOUR_KEYS = { fill: 1, stroke: 1 };
+function svg(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) {
+    if (COLOUR_KEYS[k]) e.style.setProperty(k, attrs[k]); // style accepts var(--token); presentation attributes do not
+    else e.setAttribute(k, attrs[k]);
+  }
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function txt(parent, x, y, s, attrs) { const t = svg('text', Object.assign({ x, y, 'font-size': 12, fill: 'var(--ink)' }, attrs || {}), parent); t.textContent = s; return t; }
+const fmtP = p => p < 0.001 ? 'p < .001' : 'p = ' + p.toFixed(3).replace(/^0/, '');
+const fmtPbare = p => p < 0.001 ? '< .001' : p.toFixed(3).replace(/^0/, '');
+const pct = (x, dp) => (100 * x).toFixed(dp === undefined ? 1 : dp) + '%';
+const num = (x, dp) => x.toFixed(dp).replace('-', '−');
+const live = m => { const l = $('#live'); l.textContent = ''; setTimeout(() => { l.textContent = m; }, 30); };
+const COL = { verm: 'var(--verm)', grey: 'var(--grey)', blue: 'var(--accent)', green: 'var(--green)', purple: 'var(--purple)', amber: 'var(--amber)',
+  ink: 'var(--ink)', muted: 'var(--muted)', grid: 'var(--grid)', zero: 'var(--zero)', surface: 'var(--surface)', line: 'var(--line)', head: 'var(--head)' };
+function token(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function legendItem(svgMarkup, label) { return `<span><svg width="16" height="14" aria-hidden="true">${svgMarkup}</svg>${label}</span>`; }
+function table(headers, rows, opts) {
+  opts = opts || {};
+  return '<table>' + (opts.caption ? `<caption class="sr-only">${opts.caption}</caption>` : '') + '<thead><tr>' + headers.map(h => `<th scope="col">${h}</th>`).join('') + '</tr></thead><tbody>' +
+    rows.map(r => '<tr>' + r.map(c => (typeof c === 'object' && c !== null) ? `<td class="${c.cls || ''}">${c.v}</td>` : `<td>${c}</td>`).join('') + '</tr>').join('') + '</tbody></table>';
+}
+let params; try { params = new URLSearchParams(location.search); } catch (e) { params = new URLSearchParams(''); }
+window.T15UI = { $, $$, svg, txt, fmtP, fmtPbare, pct, num, live, COL, token, legendItem, table, params };
+
+// ---------- glossary ----------
+const GLOSSARY = {
+  falsepos: ['False positive', 'Concluding there is an effect when there is none. Also called a Type I error (Topic 15).'],
+  qrp: ['Questionable research practice', 'A flexible choice made after seeing the data, such as dropping awkward values or testing extra outcomes, that makes a “significant” result more likely without the reader knowing.'],
+  phack: ['P-hacking', 'Trying analyses until one gives p < .05, then reporting only that one.'],
+  bf: ['Bayes factor', 'How many times more likely the data are under one model (for example “an effect”) than another (“no effect”). BF₁₀ > 3 is often read as moderate evidence for an effect. It depends on the prior chosen for the effect.'],
+  estimand: ['Estimand', 'The exact quantity a study sets out to estimate: who, which comparison, which outcome and which summary (Topic 1).'],
+  prereg: ['Pre-registration', 'A public, time-stamped plan of the question, outcome, sample size and analysis, written before the data are collected.'],
+  multiverse: ['Multiverse analysis', 'Running every reasonable combination of analysis choices on the same data and showing all the results together.'],
+  itt: ['Intention to treat (ITT)', 'Analysing everyone in the group they were randomised to, whether or not they completed the programme. It targets the effect of being assigned to the programme. Dropping athletes with a missing outcome (complete cases) means the analysis is no longer a full ITT analysis.'],
+  pp: ['Per-protocol', 'Analysing only the participants who followed the programme as planned (here, at least 10 of 12 sessions). It changes who the question is about, and it estimates the effect of doing the programme only under strong assumptions about who keeps attending.'],
+  cri: ['Credible interval', 'A Bayesian interval. Given the data and the prior, the true effect lies inside a 95% credible interval with 95% probability (Topic 13).'],
+  rr: ['Registered Report', 'An article type with peer review and in-principle acceptance before data collection. Publication is independent of the result, conditional on following the agreed methods and quality requirements.'],
+  drawer: ['File drawer', 'Studies that were run but never published, usually because the result was not significant.'],
+  repro: ['Reproducible', 'Running the same code on the same data gives the same result.'],
+  repli: ['Replicable', 'A new study, with new data, finds a consistent result.'],
+  nulldist: ['Null distribution', 'The spread of results (here, t statistics) you would expect if there were no effect. The p-value is the area of its tails beyond the observed result.'],
+  posterior: ['Posterior distribution', 'What is believed about the true effect after the data: the prior combined with the likelihood of the data (Topic 13).'],
+  sdr: ['Savage–Dickey ratio', 'A way to read a Bayes factor from a plot: the prior’s height at “no effect” divided by the posterior’s height there. If the data make “no effect” less plausible, the posterior is lower than the prior at 0.'],
+  funnel: ['Funnel plot', 'A plot of each study’s effect size against its standard error. Without publication bias it looks like a symmetrical funnel.']
+};
+const pop = document.createElement('div'); pop.className = 'gpop'; pop.id = 'gpop'; pop.setAttribute('role', 'tooltip'); pop.hidden = true; document.body.appendChild(pop);
+let popFor = null;
+function closePop() { if (popFor) popFor.setAttribute('aria-expanded', 'false'); pop.hidden = true; popFor = null; }
+function openPop(btn) {
+  const g = GLOSSARY[btn.dataset.g]; if (!g) return;
+  closePop();
+  pop.innerHTML = `<strong>${g[0]}</strong>${g[1]}`; pop.hidden = false; popFor = btn; btn.setAttribute('aria-expanded', 'true');
+  const r = btn.getBoundingClientRect(), w = pop.offsetWidth, vw = document.documentElement.clientWidth;
+  pop.style.left = Math.max(16, Math.min(r.left + window.scrollX, window.scrollX + vw - w - 16)) + 'px';
+  pop.style.top = (r.bottom + window.scrollY + 6) + 'px';
+}
+$$('.term').forEach(b => { b.setAttribute('aria-expanded', 'false'); b.setAttribute('aria-controls', 'gpop'); });
+document.addEventListener('click', e => {
+  const b = e.target.closest('.term');
+  if (b) { e.preventDefault(); e.stopPropagation(); if (popFor === b) closePop(); else openPop(b); return; }
+  if (!e.target.closest('#gpop')) closePop();
+}, true);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePop(); });
+const gl = $('#glossaryList');
+if (gl) Object.keys(GLOSSARY).map(k => GLOSSARY[k]).sort((a, b) => a[0].localeCompare(b[0])).forEach(([t, d]) => { gl.insertAdjacentHTML('beforeend', `<dt>${t}</dt><dd>${d}</dd>`); });
+
+// ---------- stepper and unlocking ----------
+const stepLinks = $$('nav.stepper a');
+function markDone(i) { stepLinks[i] && stepLinks[i].classList.add('done'); }
+const obs = new IntersectionObserver(ents => {
+  ents.forEach(e => { if (e.isIntersecting) { stepLinks.forEach(a => a.classList.remove('current')); const a = stepLinks[+e.target.id.slice(1)]; if (a) a.classList.add('current'); } });
+}, { rootMargin: '-40% 0px -55% 0px' });
+$$('section.step').forEach(s => obs.observe(s));
+const unlockHooks = {};
+function unlock(id) {
+  const s = $(id); if (!s || !s.classList.contains('locked')) return;
+  s.classList.remove('locked'); live('New section unlocked.');
+  (unlockHooks[id] || []).forEach(f => f());
+}
+function onUnlock(id, f) { (unlockHooks[id] = unlockHooks[id] || []).push(f); }
+Object.assign(window.T15UI, { markDone, unlock, onUnlock });
+
+// ---------- evaluation link (optional, set with ?eval=https://...) ----------
+const evalUrl = params.get('eval');
+if (evalUrl && /^https:\/\//.test(evalUrl) && $('#evalCard')) { $('#evalLink').href = evalUrl; $('#evalCard').hidden = false; }
+
+// ---------- quiz renderer ----------
+function renderQuiz(box, Q, onAnswer) {
+  Q.forEach(([stem, opts], qi) => {
+    const d = document.createElement('div'); d.className = 'mcq';
+    d.innerHTML = `<fieldset><legend><strong>Q${qi + 1}.</strong> ${stem}</legend>` + opts.map((o, oi) => `<div class="opt"><input type="radio" name="q${qi}" id="q${qi}_${oi}" value="${oi}"><label for="q${qi}_${oi}">${String.fromCharCode(65 + oi)}. ${o[0]}</label></div>`).join('') + `</fieldset><div class="fbbox" aria-live="polite"></div>`;
+    box.appendChild(d);
+    d.querySelectorAll('input').forEach(inp => inp.addEventListener('change', () => {
+      const o = opts[+inp.value]; d.querySelector('.fbbox').innerHTML = `<div class="fb ${o[1] ? 'right' : 'wrong'}">${o[1] ? '✔ Correct. ' : '✘ Not quite. '}${o[2]}</div>`; if (onAnswer) onAnswer();
+    }));
+  });
+}
+window.T15UI.renderQuiz = renderQuiz;
+})();
+
+</script>
+<script>
+/* Null-distribution plots: the p-value as a tail area, and the Fisher / Neyman–Pearson / NHST panel. */
+(function () {
+'use strict';
+const T = window.T15, U = window.T15UI, { $, svg, txt, fmtP, num, COL } = U;
+
+/* opts: { t, df, shadeP, crit (alpha or null), critLineOnly, alt: {ncp} or null, label } */
+function drawTDist(box, o) {
+  box.innerHTML = '';
+  const W = o.w || 520, H = o.h || 200, L = 14, R = 14, Tp = 22, B = 34, xr = 4.5;
+  const sx = x => L + (Math.max(-xr, Math.min(xr, x)) + xr) / (2 * xr) * (W - L - R);
+  const f0 = x => T.tDensity(x, o.df), f1 = o.alt ? (x => T.ntDensity(x, o.df, o.alt.ncp)) : null;
+  let ymax = f0(0); if (f1) for (let x = -xr; x <= xr; x += 0.05) ymax = Math.max(ymax, f1(x));
+  ymax *= 1.1;
+  const sy = y => H - B - (y / ymax) * (H - B - Tp);
+  const s = svg('svg', { viewBox: `0 0 ${W} ${H}`, class: 'chart', role: 'img', 'aria-label': o.label }, box);
+  const area = (x0, x1, fn, fill, op) => {
+    if (x1 <= x0) return; const n = 60; let d = `M${sx(x0)} ${sy(0)}`;
+    for (let i = 0; i <= n; i++) { const x = x0 + (x1 - x0) * i / n; d += `L${sx(x).toFixed(1)} ${sy(fn(x)).toFixed(1)}`; }
+    svg('path', { d: d + `L${sx(x1)} ${sy(0)}Z`, fill, 'fill-opacity': op }, s);
+  };
+  const curve = (fn, stroke, dash) => { let d = ''; for (let i = 0; i <= 240; i++) { const x = -xr + 2 * xr * i / 240; d += (i ? 'L' : 'M') + sx(x).toFixed(1) + ' ' + sy(fn(x)).toFixed(1); } svg('path', Object.assign({ d, fill: 'none', stroke, 'stroke-width': 2 }, dash ? { 'stroke-dasharray': '6 4' } : {}), s); };
+  const c = o.crit ? T.tCrit(o.crit, o.df) : null;
+  if (f1 && c) { area(c, xr, f1, COL.green, 0.28); area(-xr, -c, f1, COL.green, 0.28); }
+  if (c && !o.critLineOnly) { area(c, xr, f0, COL.verm, 0.45); area(-xr, -c, f0, COL.verm, 0.45); }
+  if (o.shadeP) { const a = Math.abs(o.t); area(a, xr, f0, COL.purple, 0.75); area(-xr, -a, f0, COL.purple, 0.75); }
+  svg('line', { x1: L, x2: W - R, y1: sy(0), y2: sy(0), stroke: COL.zero }, s);
+  curve(f0, COL.ink, false);
+  if (f1) curve(f1, COL.green, true);
+  if (c) [-c, c].forEach(v => svg('line', { x1: sx(v), x2: sx(v), y1: Tp - 4, y2: sy(0), stroke: COL.verm, 'stroke-width': 1.5, 'stroke-dasharray': '4 3' }, s));
+  [-4, -2, 0, 2, 4].forEach(v => txt(s, sx(v), H - B + 14, String(v).replace('-', '−'), { 'font-size': 10, 'text-anchor': 'middle', fill: COL.muted }));
+  txt(s, W / 2, H - 4, 't statistic', { 'font-size': 11, 'text-anchor': 'middle', fill: COL.muted });
+  const xt = sx(o.t);
+  svg('line', { x1: xt, x2: xt, y1: Tp - 6, y2: sy(0), stroke: COL.blue, 'stroke-width': 2.5 }, s);
+  txt(s, Math.min(W - 60, Math.max(4, xt + 4)), Tp - 8, 't = ' + num(o.t, 2) + (Math.abs(o.t) > xr ? ' →' : ''), { 'font-size': 11, fill: COL.blue, 'font-weight': 700 });
+  return c;
+}
+U.drawTDist = drawTDist;
+
+})();
+
+</script>
+<script>
+/* Page 1: hook and Prediction 1. */
+(function () {
+'use strict';
+const U = window.T15UI, { $, $$ } = U;
+U.state = { vote1: null, pred1: null };
+$$('input[name=vote1]').forEach(r => r.addEventListener('change', () => { U.state.vote1 = r.value; U.markDone(0); }));
+$$('input[name=pred1]').forEach(r => r.addEventListener('change', () => { $('#pred1Lock').disabled = false; }));
+$('#pred1Lock').addEventListener('click', () => {
+  const c = $('input[name=pred1]:checked'); if (!c) return;
+  U.state.pred1 = c.value;
+  $$('input[name=pred1]').forEach(r => r.disabled = true); $('#pred1Lock').disabled = true;
+  $('#pred1Msg').textContent = 'Locked in. Now test it below: switch on “Measure more outcomes” with 5 outcomes.';
+  U.markDone(1); U.markDone(2); U.unlock('#s3');
+});
+})();
+/* Simulation 1: Be a p-hacker (core). */
+(function () {
+'use strict';
+const T = window.T15, U = window.T15UI, { $, $$, svg, txt, fmtP, pct, num, live, COL, token, table } = U;
+
+const ctl = { A: $('#qA'), B: $('#qB'), C: $('#qC'), D: $('#qD'), K: $('#qK'), R: $('#qR'), N: $('#qN'), batch: $('#qBatch'), seed: $('#qSeed'), fix: $('#qFix'), auto: $('#qAuto') };
+const OUT_SHORT = ['sprint', 'jump', 'agility', 'Yo-Yo', 'RPE'];
+function settings() {
+  const stopping = ctl.C.checked ? 'unplanned' : 'none';
+  const planned = stopping === 'pocock' || stopping === 'obf';
+  return {
+    K: (!planned && ctl.A.checked) ? +ctl.K.value : 1, r: +ctl.R.value, outliers: !planned && ctl.B.checked,
+    z: +$('input[name=qZ]:checked').value, stopping, subgroups: !planned && ctl.D.checked, n: +ctl.N.value, delta: 0,
+    direction: 'any', wantBF: true, planned
+  };
+}
+const allFour = S => S.K > 1 && S.outliers && S.subgroups && S.stopping === 'unplanned';
+let pred2Locked = false, lastResult = null, running = false, pendingAuto = false, autoTimer = null;
+
+function syncControls(fromUser) {
+  $('#qKv').textContent = ctl.K.value; $('#qRv').textContent = (+ctl.R.value).toFixed(1); $('#qNv').textContent = ctl.N.value;
+  $('#qKlist').textContent = 'Testing: ' + OUT_SHORT.slice(0, +ctl.K.value).join(', ') + '.';
+  $('#qAopts').hidden = !ctl.A.checked; $('#qCopts').hidden = !ctl.C.checked;
+  const S = settings();
+  [ctl.A, ctl.B, ctl.D].forEach(c => c.disabled = S.planned);
+  ctl.N.disabled = ctl.C.checked; $('#nNote').hidden = !ctl.C.checked;
+  $('#runBatch').textContent = 'Run ' + (+ctl.batch.value).toLocaleString('en-GB') + ' studies';
+  if (lastResult) { $('#meters').classList.add('stale'); $('#phStatus').textContent = 'Settings changed: run again to update.'; }
+  if (fromUser && ctl.auto.checked && lastResult) scheduleAuto();
+}
+function scheduleAuto() {
+  clearTimeout(autoTimer);
+  autoTimer = setTimeout(() => { if (running) pendingAuto = true; else runBatch(); }, 300);
+}
+['change', 'input'].forEach(ev => $$('#s3 .grid2 input, #s3 .grid2 select').forEach(i => {
+  if (['pred2', 'cp1', 'qSeed', 'qFix', 'qAuto'].includes(i.id)) return;
+  // sliders: update labels while dragging, run only when released
+  if (i.type === 'range' && ev === 'input') i.addEventListener('input', () => syncControls(false));
+  else if (ev === 'change') i.addEventListener('change', () => syncControls(true));
+}));
+$('#pred2').addEventListener('input', () => { $('#pred2v').textContent = $('#pred2').value + '%'; });
+$('#pred2Lock').addEventListener('click', () => {
+  pred2Locked = true; $('#pred2').disabled = true; $('#pred2Lock').disabled = true;
+  $('#pred2Msg').textContent = 'Locked in at ' + $('#pred2').value + '%. Now press Full hacker and run.';
+});
+$('#presetHonest').addEventListener('click', () => { [ctl.A, ctl.B, ctl.C, ctl.D].forEach(c => c.checked = false); syncControls(true); });
+$('#presetHacker').addEventListener('click', () => {
+  [ctl.A, ctl.B, ctl.C, ctl.D].forEach(c => c.checked = true); ctl.K.value = 2; ctl.R.value = 0.5; $('#qZ2').checked = true; syncControls(true);
+});
+
+// ---------- meters ----------
+function drawMeter(box, label, rate, ci, colour, marker, extra) {
+  box.innerHTML = '';
+  const head = document.createElement('div'); head.className = 'lab';
+  head.innerHTML = '<span>' + label + '</span><span class="big">' + (rate === null ? '–' : pct(rate)) + '</span>';
+  box.appendChild(head);
+  const W = 520, H = 58, x0 = 10, x1 = W - 14, sx = v => x0 + v * (x1 - x0);
+  const s = svg('svg', { viewBox: `0 0 ${W} ${H}`, class: 'chart', role: 'img', 'aria-label': label + ': ' + (rate === null ? 'not run yet' : pct(rate) + (ci ? ', 95% CI ' + pct(ci[0]) + ' to ' + pct(ci[1]) : '')) }, box);
+  const yb = 18;
+  svg('rect', { x: x0, y: yb, width: x1 - x0, height: 18, rx: 4, fill: 'var(--empty)' }, s);
+  if (rate !== null) {
+    svg('rect', { x: x0, y: yb, width: Math.max(1, sx(rate) - x0), height: 18, rx: 4, fill: colour }, s);
+    if (ci) { svg('line', { x1: sx(ci[0]), x2: sx(ci[1]), y1: yb + 9, y2: yb + 9, stroke: COL.ink, 'stroke-width': 1.5 }, s); [ci[0], ci[1]].forEach(v => svg('line', { x1: sx(v), x2: sx(v), y1: yb + 4, y2: yb + 14, stroke: COL.ink, 'stroke-width': 1.5 }, s)); }
+  }
+  if (marker !== null) { svg('line', { x1: sx(marker), x2: sx(marker), y1: yb - 4, y2: yb + 22, stroke: COL.ink, 'stroke-width': 2 }, s); txt(s, sx(marker) + 4, 11, '▼ ' + pct(marker, 0) + ': the honest rate (α)', { 'font-size': 11 }); }
+  [0, 0.25, 0.5, 0.75, 1].forEach(v => txt(s, Math.min(Math.max(sx(v), 14), W - 16), 52, pct(v, 0), { 'font-size': 10, fill: COL.muted, 'text-anchor': 'middle' }));
+  if (extra) { const p = document.createElement('div'); p.className = 'note'; p.innerHTML = extra; box.appendChild(p); }
+}
+const colourFor = f => f <= 0.07 ? COL.grey : (f <= 0.2 ? COL.amber : COL.verm);
+drawMeter($('#meterP'), 'Studies that “find” an effect (p < .05)', null, null, COL.grey, 0.05);
+drawMeter($('#meterBF'), 'Studies with BF₁₀ > 3', null, null, COL.purple, null);
+function meterMessage(f, S) {
+  if (S.planned) return 'Planned looks with adjusted thresholds: the false-positive rate stays at about 5%, even though you looked 3 times. It is not the looking that causes the problem, it is the lack of a plan.';
+  if (f <= 0.07) return 'About 1 in 20: the honest rate. This is what one pre-planned test gives you.';
+  if (f <= 0.2) return 'That roughly doubles to quadruples your false alarms. On its own it might feel harmless.';
+  if (f <= 0.5) return 'Now a big share of studies “find” something that is not there.';
+  return 'You will “find” an effect more often than not, and there is <strong>nothing there</strong>. This is how a literature fills up with false findings.';
+}
+function trickLabel(S) {
+  const t = []; if (S.K > 1) t.push('A'); if (S.outliers) t.push('B');
+  if (S.stopping === 'unplanned') t.push('C'); else if (S.stopping === 'pocock') t.push('Pocock'); else if (S.stopping === 'obf') t.push('OBF');
+  if (S.subgroups) t.push('D'); return t.length ? t.join(' + ') : 'none (honest)';
+}
+
+// ---------- grid ----------
+const gctx = $('#grid').getContext('2d');
+let gridState = { flags: new Uint8Array(1000), done: 0 };
+function drawGrid(flags, done) {
+  gridState = { flags, done };
+  const W = 40, cell = 10; gctx.clearRect(0, 0, 400, 250);
+  const cFound = token('--verm'), cLine = token('--grey'), cEmpty = token('--empty');
+  const n = Math.min(1000, flags.length);
+  for (let i = 0; i < n; i++) {
+    const x = (i % W) * cell, y = Math.floor(i / W) * cell;
+    if (i >= done) { gctx.fillStyle = cEmpty; gctx.fillRect(x + 1, y + 1, cell - 2, cell - 2); continue; }
+    if (flags[i]) { gctx.fillStyle = cFound; gctx.fillRect(x + 1, y + 1, cell - 2, cell - 2); }
+    else { gctx.strokeStyle = cLine; gctx.lineWidth = 1; gctx.strokeRect(x + 1.5, y + 1.5, cell - 3, cell - 3); }
+  }
+}
+drawGrid(new Uint8Array(1000), 0);
+try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => drawGrid(gridState.flags, gridState.done)); } catch (e) { /* older browsers */ }
+new MutationObserver(() => drawGrid(gridState.flags, gridState.done)).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+// ---------- seeds ----------
+let freshSeed = 1 + Math.floor(Math.random() * 900000);
+function nextSeed() {
+  if (ctl.fix.checked) return Math.max(1, Math.floor(+ctl.seed.value) || 1);
+  return freshSeed++;
+}
+
+// ---------- run a batch ----------
+// Feedback for Prediction 1: compares the student's choice with the expected rate for the selected correlation.
+function equiRate(r, K) { // P(at least one |Z| > 1.96) for K equicorrelated standard normals (large-sample approximation)
+  const N = window.T15.normalCdf, c = 1.959964;
+  if (r <= 0) return 1 - Math.pow(0.95, K);
+  let s = 0; const lo = -8, hi = 8, m = 800, h = (hi - lo) / m;
+  for (let i = 0; i <= m; i++) {
+    const z = lo + i * h, w = (i === 0 || i === m) ? 1 : (i % 2 ? 4 : 2);
+    const a = (c - Math.sqrt(r) * z) / Math.sqrt(1 - r), b = (-c - Math.sqrt(r) * z) / Math.sqrt(1 - r);
+    s += w * Math.exp(-z * z / 2) / Math.sqrt(2 * Math.PI) * Math.pow(N(a) - N(b), K);
+  }
+  return 1 - s * h / 3;
+}
+function pred1Feedback(choice, r) {
+  const th = 100 * equiRate(r, 5), opts = ['5', '10', '20', '40', '60'];
+  const nearest = opts.reduce((b, k) => Math.abs(+k - th) < Math.abs(+b - th) ? k : b, '5');
+  const verdict = choice === nearest ? 'Close.' : (+choice < th ? 'Higher than that.' : 'Lower than that.');
+  return verdict + ' With five unrelated outcomes the chance is 1 − 0.95⁵ ≈ 23%.' +
+    (r > 0 ? ' Your outcomes are linked (r = ' + r.toFixed(1) + '), which brings the expected rate to about ' + Math.round(th) + '%; the more closely outcomes are related, the fewer separate chances they give.' : '') +
+    ' Each batch fluctuates around the expected rate.';
+}
+function runBatch() {
+  if (running) { pendingAuto = true; return; }
+  const S = settings(), N = +ctl.batch.value;
+  if (allFour(S) && !pred2Locked) {
+    $('#phStatus').innerHTML = '<strong>Lock in Prediction 2 first.</strong> You have switched on all four tricks: predict the result before you run it.';
+    $('#pred2card').scrollIntoView({ block: 'nearest' });
+    return;
+  }
+  running = true; pendingAuto = false; $('#runBatch').disabled = true; $('#runOne').disabled = true;
+  const seed = nextSeed();
+  const st = T.makeBatch(S, N, seed);
+  $('#meters').classList.remove('stale');
+  $('#phStatus').textContent = 'Running… 0 of ' + N.toLocaleString('en-GB');
+  function tick() {
+    const t0 = performance.now(); let finished = false;
+    while (performance.now() - t0 < 30 && !finished) finished = st.step(20);
+    drawGrid(st.flags, st.done);
+    $('#phStatus').textContent = 'Running… ' + st.done.toLocaleString('en-GB') + ' of ' + N.toLocaleString('en-GB');
+    if (!finished) { requestAnimationFrame(tick); return; }
+    running = false; $('#runBatch').disabled = false; $('#runOne').disabled = false;
+    const f = st.found / N, ci = T.wilson(st.found, N), fb = st.foundBF / N, cib = T.wilson(st.foundBF, N);
+    lastResult = { S, f, fb, N };
+    $('#seedUsed').textContent = 'Seed used for the last run: ' + seed + '. Tick “Fix the seed” and enter ' + seed + ' to get exactly the same results again.';
+    const extra = '95% CI ' + pct(ci[0]) + ' to ' + pct(ci[1]) + ' from ' + N.toLocaleString('en-GB') + ' studies. Your numbers will wobble a little from run to run: that is sampling variation again (Topic 9).';
+    drawMeter($('#meterP'), 'Studies that “find” an effect (p < .05)', f, ci, colourFor(f), 0.05, extra);
+    if (S.planned) drawMeter($('#meterBF'), 'Studies with BF₁₀ > 3', null, null, COL.purple, null, 'Not shown for planned designs: these use p-value thresholds.');
+    else drawMeter($('#meterBF'), 'Studies with BF₁₀ > 3', fb, cib, COL.purple, null);
+    $('#phStatus').innerHTML = meterMessage(f, S);
+    live('Finding rate ' + pct(f) + ', 95 percent confidence interval ' + pct(ci[0]) + ' to ' + pct(ci[1]) + '.');
+    addHistory(S, N, f, S.planned ? null : fb);
+    const st0 = U.state;
+    if (st0.pred1 && S.K === 5 && !S.outliers && !S.subgroups && S.stopping === 'none') {
+      $('#pred1Feedback').innerHTML = '<div class="card predict"><strong>Prediction 1 check.</strong> You predicted ' + (st0.pred1 === '60' ? '60% or more' : (st0.pred1 === '5' ? '5%' : 'about ' + st0.pred1 + '%')) + '. With 5 outcomes you got ' + pct(f) + '. ' + pred1Feedback(st0.pred1, +ctl.R.value) + '</div>';
+    }
+    if (allFour(S) && pred2Locked) {
+      $('#pred2Feedback').innerHTML = '<div class="card predict"><strong>Prediction 2 check.</strong> You predicted ' + $('#pred2').value + '%. With ' + S.K + ' outcomes and all four tricks you got ' + pct(f) + '. Simmons, Nelson and Simonsohn (2011) found 61% with a similar set of tricks.' + (S.K < 5 ? ' Try 5 outcomes as well.' : '') + '</div>';
+    }
+    U.markDone(3);
+    if (pendingAuto) { pendingAuto = false; runBatch(); }
+  }
+  requestAnimationFrame(tick);
+}
+$('#runBatch').addEventListener('click', runBatch);
+
+function addHistory(S, N, f, fb) {
+  const tr = document.createElement('tr');
+  const looks = S.stopping === 'none' ? 'n = ' + S.n : '20, 30, 40' + (S.planned ? ' (planned)' : '');
+  [trickLabel(S), S.K, S.K > 1 ? S.r.toFixed(1) : '–', looks, N.toLocaleString('en-GB'), pct(f), fb === null ? '–' : pct(fb)].forEach(v => { const td = document.createElement('td'); td.textContent = v; tr.appendChild(td); });
+  const tb = $('#hist tbody'); tb.insertBefore(tr, tb.firstChild); while (tb.children.length > 20) tb.removeChild(tb.lastChild);
+}
+let clearedRows = null;
+$('#clearHist').addEventListener('click', () => {
+  const tb = $('#hist tbody'); if (!tb.children.length) return;
+  clearedRows = Array.from(tb.children); tb.innerHTML = '';
+  $('#histUndo').innerHTML = 'History cleared. <button class="text" id="histUndoBtn">Undo</button>';
+  $('#histUndoBtn').addEventListener('click', () => { clearedRows.forEach(r => tb.appendChild(r)); clearedRows = null; $('#histUndo').textContent = ''; });
+});
+
+// ---------- one study ----------
+const UNITS = [{ m: 3.10, sd: 0.11, lower: true, u: 's', dp: 2 }, { m: 38, sd: 5, lower: false, u: 'cm', dp: 1 }, { m: 2.40, sd: 0.10, lower: true, u: 's', dp: 2 }, { m: 1600, sd: 400, lower: false, u: 'm', dp: 0 }, { m: 5, sd: 1.5, lower: true, u: 'AU', dp: 1 }];
+const WHAT = ['sprint speed', 'jump height', 'agility', 'fitness', 'effort (RPE)'];
+$('#runOne').addEventListener('click', () => {
+  const S = settings(); S.wantLog = true; S.wantBF = false;
+  const seed = nextSeed();
+  const r = T.simulateStudy(T.mulberry32(seed * 31 + 7), S);
+  $('#oneStudy').hidden = false;
+  const log = $('#oneLog'); log.innerHTML = '';
+  r.log.forEach(e => {
+    const d = document.createElement('div');
+    if (e.skipped) { d.className = 'skip'; d.textContent = `n = ${e.look}/group · ${e.outcome} · ${e.outl ? 'outliers removed' : 'all data'} · ${e.sub} · (too few: skipped)`; }
+    else {
+      d.textContent = `n = ${e.look}/group · ${e.outcome} · ${e.outl ? 'outliers removed' : 'all data'} · ${e.sub} ··· ${fmtP(e.p)}, d = ${num(e.d, 2)}` + (S.planned ? ` (threshold ${String(e.alpha).replace(/^0/, '')})` : '');
+      if (e.hit) { d.className = 'hit'; d.textContent = '▶ ' + d.textContent + ' ✔'; }
+    }
+    log.appendChild(d);
+  });
+  const H = $('#oneHeadline'), box = $('#oneDots'); box.innerHTML = ''; $('#oneTable').innerHTML = '';
+  if (r.found) {
+    const rep = r.reported, who = rep.sub === 'everyone' ? '' : (rep.sub === 'women' ? 'women’s ' : 'men’s ');
+    const verb = rep.d > 0 ? 'boosts' : 'harms';
+    H.innerHTML = `“Sled training ${verb} ${who}${WHAT[rep.k]}!” (d = ${num(rep.d, 2)}, ${fmtP(rep.p)})<br><span class="note">Found after ${r.nAnalyses} ${r.nAnalyses === 1 ? 'analysis' : 'analyses'}. The headline never mentions the others.${rep.d < 0 ? ' A result in the “wrong” direction is still a false alarm here; in Part 3 only “sled better” gets published.' : ''}</span>`;
+    drawDots(box, rep, UNITS[rep.k], S.outliers && rep.outl);
+  } else {
+    H.innerHTML = `No luck this time. ${r.nAnalyses} analyses, no finding. Into the file drawer it goes.`;
+  }
+  // where does the p-value come from?
+  const done = r.log.filter(e => !e.skipped);
+  const focus = r.found ? Object.assign({ outcome: T.OUTCOME_NAMES[r.reported.k] }, r.reported) : done.reduce((a, e) => (!a || e.p < a.p) ? e : a, null);
+  if (focus) {
+    const nA = r.nAnalyses, crit = S.planned ? focus.alpha : 0.05;
+    $('#oneNullHead').hidden = false;
+    U.drawTDist($('#oneNull'), { t: focus.t, df: focus.df, shadeP: true, crit, critLineOnly: true,
+      label: `Null t distribution with ${focus.df} degrees of freedom. Observed t = ${focus.t.toFixed(2)}; the two tails beyond it are shaded, giving ${fmtP(focus.p)}.` });
+    $('#oneNullNote').innerHTML = `${r.found ? 'The reported analysis' : 'The analysis that came closest'}: t(${focus.df}) = ${num(focus.t, 2)}. The shaded tails are the p-value (${fmtP(focus.p)}): the share of studies that would give a t at least this far from 0 if there were no effect <em>and this were the only test</em>. The dashed lines mark the ${S.planned ? 'planned threshold for this look' : '.05 line'}. ` +
+      (nA > 1 ? `But this result was chosen from ${nA} analyses, so this curve is the wrong reference: the chance that at least one of ${nA} analyses lands this far out is much bigger, as the meter shows.` : 'With a single pre-planned analysis, this curve is the right reference.');
+    U.lastOneStudy = { t: focus.t, df: focus.df, desc: `${focus.outcome.toLowerCase()}, ${focus.sub}, ${focus.look} per group` };
+  }
+  live(H.textContent);
+});
+function drawDots(box, rep, Un, outl) {
+  const toReal = z => Un.m + (Un.lower ? -1 : 1) * z * Un.sd;
+  const W = 520, Hh = 150, s = svg('svg', { viewBox: `0 0 ${W} ${Hh}`, class: 'chart', role: 'img', 'aria-label': `Dot plot of the two groups for the analysis that was reported: ${rep.a.length} sled and ${rep.b.length} control values` }, box);
+  const all = rep.a.concat(rep.b).map(toReal), lo = Math.min(...all), hi = Math.max(...all), pad = (hi - lo) * 0.1 || 1;
+  const sx = v => 110 + (v - (lo - pad)) / ((hi + pad) - (lo - pad)) * (W - 130);
+  [['Sled', rep.a, 45, COL.verm], ['Control', rep.b, 105, COL.grey]].forEach(([lab, arr, y, c]) => {
+    txt(s, 8, y + 4, lab, { 'font-weight': 700 });
+    arr.forEach((z, i) => svg('circle', { cx: sx(toReal(z)), cy: y + ((i % 5) - 2) * 4, r: 4.5, fill: c, 'fill-opacity': 0.85 }, s));
+    const m = arr.reduce((a, b) => a + b, 0) / arr.length; svg('line', { x1: sx(toReal(m)), x2: sx(toReal(m)), y1: y - 16, y2: y + 16, stroke: COL.ink, 'stroke-width': 2.5 }, s);
+  });
+  txt(s, 110, 142, `${lo.toFixed(Un.dp)} ${Un.u}`, { 'font-size': 11, fill: COL.muted }); txt(s, W - 20, 142, `${hi.toFixed(Un.dp)} ${Un.u}`, { 'font-size': 11, fill: COL.muted, 'text-anchor': 'end' });
+  if (outl) txt(s, W / 2, 142, 'Some “outliers” were removed before this test', { 'font-size': 11, 'text-anchor': 'middle', fill: COL.verm });
+  const n = Math.max(rep.a.length, rep.b.length), rows = [];
+  for (let i = 0; i < n; i++) rows.push([i + 1, i < rep.a.length ? toReal(rep.a[i]).toFixed(Un.dp) : '', i < rep.b.length ? toReal(rep.b[i]).toFixed(Un.dp) : '']);
+  $('#oneTable').innerHTML = table(['Athlete', 'Sled (' + Un.u + ')', 'Control (' + Un.u + ')'], rows, { caption: 'Values in the reported analysis' });
+}
+syncControls(false);
+})();
+
+/* Page 1 quiz. */
+(function () {
+'use strict';
+const U = window.T15UI;
+U.renderQuiz(U.$('#quiz'), [
+ ['A researcher compares sled training with usual training on 6 outcomes and reports only the one with p = .03. In truth there is no effect on any outcome. Which statement is correct?',
+  [['The chance of a false positive in this study was 3%.', 0, 'p = .03 is not the chance of a false positive, and testing 6 outcomes pushed the overall false-alarm rate up.'],
+   ['The chance that at least one of the 6 outcomes would give p < .05 was much higher than for a single test.', 1, 'Each test is another chance for luck. With 6 independent outcomes it is about 26% (1 − 0.95⁶), against 5% for one test.'],
+   ['The result is trustworthy because p < .05.', 0, 'p < .05 only keeps false positives at the stated rate for a single pre-planned test.'],
+   ['The other 5 outcomes do not matter because they were not significant.', 0, 'They matter: they show how many chances there were to find something.']]],
+ ['A student tests 20 athletes per group (p = .09), adds 10 more per group (p = .06), adds 10 more (p = .04), then stops and reports it. What is the main problem?',
+  [['The final sample is too small for a t-test.', 0, 'Small samples are a power problem, but that is not the main issue here.'],
+   ['Deciding when to stop based on the p-value, without a plan, inflates the false-positive rate.', 1, 'Each unplanned look is another chance to cross .05 by luck. Planned looks with adjusted thresholds would avoid this (Topic 19).'],
+   ['Adding participants always biases the effect size towards zero.', 0, 'Adding participants is not the problem. Stopping because p crossed .05 is.'],
+   ['Looking at data before the end of a study is never allowed.', 0, 'It is allowed when it is planned in advance with adjusted thresholds. That is how many clinical trials work.']]],
+ ['Which statement about Bayes factors and p-hacking is correct?',
+  [['Bayes factors cannot be hacked because they measure evidence directly.', 0, 'Try many analyses and report the best Bayes factor, and false “evidence” becomes common (about 40% for the Full hacker).'],
+   ['Choosing among many analyses after seeing the data inflates false claims whether you use p-values or Bayes factors.', 1, 'The problem is selective analysis, not the statistic.'],
+   ['Only stopping early affects Bayes factors.', 0, 'Outcome switching, outlier removal and subgroups inflate them too. In the simulation, peeking on its own had the smallest effect on Bayes factors (Topic 19 looks at why).'],
+   ['Bayes factors always favour the null.', 0, 'They can favour either model, depending on the data and the prior.']]]
+], () => U.markDone(4));
+})();
+
+</script>
+</body>
+</html>
