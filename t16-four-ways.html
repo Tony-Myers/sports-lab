@@ -245,7 +245,7 @@ section.step>h2{text-wrap:pretty}
     <div class="nav"><span><a href="t15-power.html">&larr; Topic 15: Error types, alpha and power</a></span><span><a href="t17-part1.html">Topic 17: Open research &rarr;</a></span></div>
     <span class="eyebrow">Statistics simulations for sport and exercise science · Topic 16</span>
     <h1>Four ways to draw conclusions from data: Fisher, Neyman–Pearson, NHST and Bayesian</h1>
-    <nav class="partnav" aria-label="Topics 16 and 17"><a href="index.html">All 24 topics</a> <a href="t16-four-ways.html" aria-current="page">Topic 16: Four ways</a> <a href="t17-part1.html">1 P-hacking</a> <a href="t17-part2.html">2 Flexibility and reproducibility</a> <a href="t17-part3.html">3 Replication and belief</a></nav>
+    <nav class="partnav" aria-label="Topics 16 and 17"><a href="index.html">All 25 topics</a> <a href="t16-four-ways.html" aria-current="page">Topic 16: Four ways</a> <a href="t17-part1.html">1 P-hacking</a> <a href="t17-part2.html">2 Flexibility and reproducibility</a> <a href="t17-part3.html">3 Replication and belief</a></nav>
   </div>
 </header>
 <nav class="stepper" aria-label="Progress through this page">
@@ -439,7 +439,6 @@ section.step>h2{text-wrap:pretty}
   </details>
   <p class="nextpart"><a href="t17-part1.html">Next: Topic 17, Part 1: P-hacking &rarr;</a></p>
 </section>
-<footer class="course-credit" style="margin:32px 0 16px;padding-top:16px;border-top:1px solid #9ba8a1;font-size:.85rem;line-height:1.6"><p>Sport Statistics Simulations — T. Myers, G. Abt &amp; M. Ditroilo, 2026.</p><p>Images are AI-generated illustrations for teaching, created with Gemini on 14–15 October 2026. They do not document actual studies or imply endorsement by any athlete, team, manufacturer or sporting organisation.</p></footer>
 </main>
 <div id="live" class="sr-only" aria-live="polite"></div>
 
@@ -1120,10 +1119,10 @@ function renderResult(box,r,opts={}) {
     // Unequal subgroup sizes use their effective information, not a rounded sample size.
     const target=plan?.target||.5,ncp=target*Math.sqrt(r.n1*r.n2/(r.n1+r.n2));
     U.drawTDist(plot,{t:r.t,df,shadeP:!np,crit:f?null:alpha,critLineOnly:!np,alt:np?{ncp}:null,w:720,h:260,label:`${names[method]}: t(${df}) = ${r.t.toFixed(3)}, ${fmtP(p)}.`});
-    if(f)read.innerHTML=`<strong>${fmtP(p)}.</strong> Under the no-effect model and this sampling procedure, the probability of a t statistic at least this far from zero is ${(100*p).toPrecision(3)}%. The shaded tails show that probability. Smaller p indicates less compatibility with the null model; it is not a probability that the null is true. Interpret the estimate, design and uncertainty together, without an automatic pass/fail label.`;
+    if(f)read.innerHTML=`<strong>${fmtP(p)}; S-value ${p>0?(-Math.log2(p)).toFixed(1):'> 50'} bits.</strong> The S-value, −log₂(p), measures the information against the no-effect model: ${p>0?Math.round(-Math.log2(p)):'over 50'} bits is about as surprising as that many heads in a row from a fair coin. Under the no-effect model and this sampling procedure, the probability of a t statistic at least this far from zero is ${(100*p).toPrecision(3)}%. The shaded tails show that probability. Smaller p indicates less compatibility with the null model; it is not a probability that the null is true. Interpret the estimate, design and uncertainty together, without an automatic pass/fail label.`;
     else if(np)read.innerHTML=`<strong>${p<alpha?'Reject':'Accept'} H₀ at the ${100*alpha}% two-sided level.</strong> The red tails are the rejection region under H₀; the dashed green curve describes the planning alternative d = ${target}. ${opts.sequential ? 'This is the threshold for this particular look; overall error control belongs to the full planned sequence of boundaries.' : 'For a genuinely pre-planned single-test procedure, α controls long-run false rejections.'} This decision does not tell us the probability that H₀ is true. Not rejecting is not accepting “no effect”.`;
     else read.innerHTML=`<strong>${fmtP(p)}: ${p<alpha?'statistically significant':'not statistically significant'} at α = ${alpha}.</strong> This hybrid reports the exact p-value alongside a threshold decision. The label does not establish that an effect is large, useful or certainly real; a non-significant result does not establish no effect.`;
-    rows.push(['t statistic',num(r.t,3)],['Degrees of freedom',df],['Two-sided p',p<.001?'less than .001':p.toFixed(4)]);
+    rows.push(['t statistic',num(r.t,3)],['Degrees of freedom',df],['Two-sided p',p<.001?'less than .001':p.toFixed(4)],['S-value, −log₂(p)',p>0?(-Math.log2(p)).toFixed(1)+' bits':'more than 50 bits']);
     if(!f)rows.push(['Comparison threshold α',alpha]);
   }
   if(opts.selected){const warn=document.createElement('p');warn.className='msg';warn.textContent='Selection warning: this analysis was chosen within a search or publication process. These are nominal, unadjusted results. Switching inference method does not remove the selection bias or restore planned error control.';box.appendChild(warn);}
@@ -1210,7 +1209,7 @@ function renderSbs() {
   const pct = x => x > 0.999 ? 'more than 99.9%' : x < 0.001 ? 'less than 0.1%' : (100 * x).toFixed(1) + '%';
   const rows = [
     ['Every approach', `Estimated effect d = ${num(r.d, 2)} (approximate 95% CI ${num(r.lo, 2)} to ${num(r.hi, 2)}), ${r.n1} v ${r.n2} athletes`, 'Whether the effect is real or worthwhile, on its own'],
-    ['Fisher', `${fmtP(p)}: if sled training had no effect, a result at least this extreme would turn up in about ${(100 * p).toFixed(1)}% of studies${isFinite(oneIn) ? ' (1 in ' + oneIn.toLocaleString('en-GB') + ')' : ''}.`, 'The probability that there is no effect, or how big the effect is'],
+    ['Fisher', `${fmtP(p)} (S-value ${p > 0 ? (-Math.log2(p)).toFixed(1) : '> 50'} bits): if sled training had no effect, a result at least this extreme would turn up in about ${(100 * p).toFixed(1)}% of studies${isFinite(oneIn) ? ' (1 in ' + oneIn.toLocaleString('en-GB') + ')' : ''}.`, 'The probability that there is no effect, or how big the effect is'],
     ['Neyman–Pearson', `${reject ? 'Reject the null' : 'Accept the null (act as if there is no effect)'} at α = ${alpha} (critical t = ±${crit.toFixed(2)}). This plan detects a true d = ${target} with probability ${pw >= 0.995 ? 'more than 99%' : Math.round(100 * pw) + '%'}.${['np', 'nhst'].includes(plan.method) ? '' : ' (α and the planning effect are defaults here, because your plan used another approach.)'}`, 'How strong the evidence is in this study, or the chance this decision is right'],
     ['NHST', `“t(${r.df}) = ${r.t.toFixed(2)}, ${fmtP(p)}”: ${p < alpha ? 'statistically significant' : 'not statistically significant'}.`, '“Significant” does not mean important; “not significant” does not mean no effect'],
     ['Bayesian estimation', `With the ${prior.label} prior: posterior mean d = ${num(post.mean, 2)}, 95% credible interval ${num(post.lo, 2)} to ${num(post.hi, 2)}. Probability that sled training helps at all (d > 0): ${pct(post.pPos)}. Probability that it exceeds d = 0.2 (an illustrative threshold; Topic 10): ${pct(pSwc)}.`, 'Anything free of the prior; with little data, the prior matters a lot']

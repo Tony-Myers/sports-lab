@@ -207,6 +207,17 @@ table.data th:first-child, table.data td:first-child { text-align: left; }
 @media (prefers-reduced-motion: no-preference) { .hero-down { animation: nudge 2.2s ease-in-out infinite; } }
 @keyframes nudge { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, 6px); } }
 
+/* evidence panel: p-value, S-value, Bayes factor */
+.evidence { border-top: 1px solid var(--line); padding-top: 12px; display: grid; gap: 8px; min-width: 0; }
+.ev-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 16px; }
+.ev-head h3 { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 1.12rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.ev-prior { display: flex; align-items: center; gap: 8px; font-size: .85rem; font-weight: 700; }
+.ev-prior input { width: 130px; min-height: 24px; }
+.ev-prior output { font-family: var(--font-data); font-weight: 400; min-width: 3.2em; }
+.ev-read { font-size: .93rem; margin: 0; }
+.ev-note { margin: 0; }
+@media (max-width: 520px) { table.data { font-size: .8rem; } table.data th, table.data td { padding: 4px 6px; } }
+
 /* ---------- bundled fonts (SIL Open Font License; see assets/fonts/OFL-LICENCES.txt) ---------- */
 @font-face { font-family: "Atkinson Hyperlegible"; font-style: normal; font-weight: 400; font-display: swap; src: url("assets/fonts/atkinson-hyperlegible-latin-400-normal.woff2") format("woff2"); }
 @font-face { font-family: "Atkinson Hyperlegible"; font-style: italic; font-weight: 400; font-display: swap; src: url("assets/fonts/atkinson-hyperlegible-latin-400-italic.woff2") format("woff2"); }
@@ -365,7 +376,7 @@ SD of individual responses ≈ √(SD training² − SD control²)</div>
   </section>
 </div>
 
-<footer class="credit"><p>Sport Statistics Simulations: interactive topics for sport and exercise science students — T. Myers, G. Abt &amp; M. Ditroilo, 2026. Everything runs in your browser. What you enter stays on this page; observation notes are saved only if you choose Download. Examples use realistic but invented numbers unless a source is named. Images are AI-generated illustrations for teaching, created with Gemini on 14–15 October 2026. They do not document actual studies or imply endorsement by any athlete, team, manufacturer or sporting organisation.</p></footer>
+<footer class="credit"><p>Sport Statistics Simulations: interactive topics for sport and exercise science students (T. Myers, G. Abt &amp; M. Ditroilo, 2026). Everything runs in your browser. What you enter stays on this page; observation notes are saved only if you choose Download. Examples use realistic but invented numbers unless a source is named. Illustrations were generated with Gemini on 14–15 October 2026. They do not show real studies or imply endorsement. <a href="IMAGE-PROVENANCE.md">Image provenance</a>.</p></footer>
 </div>
 <script>
 /* Shared maths for the chapter apps. Plain JavaScript, no dependencies.
@@ -451,6 +462,8 @@ SD of individual responses ≈ √(SD training² − SD control²)</div>
     const x = df / (df + t * t), tail = 0.5 * ibeta(x, df / 2, 0.5);
     return t >= 0 ? 1 - tail : tail;
   }
+  // Direct two-sided tail avoids cancellation when the CDF rounds to 1.
+  function tTwoSided(t, df) { return ibeta(df / (df + t * t), df / 2, 0.5); }
   function tPdf(t, df) {
     return Math.exp(lgamma((df + 1) / 2) - lgamma(df / 2) - 0.5 * Math.log(df * Math.PI) - (df + 1) / 2 * Math.log1p(t * t / df));
   }
@@ -561,7 +574,7 @@ SD of individual responses ≈ √(SD training² − SD control²)</div>
     const b = sxy / sxx, a = my - b * mx;
     const res = y.map((v, i) => v - (a + b * x[i])), sse = res.reduce((s, e) => s + e * e, 0);
     const se = Math.sqrt(sse / (n - 2) / sxx), r = sxy / Math.sqrt(sxx * syy);
-    return { a, b, r, r2: r * r, se, res, n, sse, sigma: Math.sqrt(sse / (n - 2)), t: b / se, p: 2 * (1 - tCdf(Math.abs(b / se), n - 2)) };
+    return { a, b, r, r2: r * r, se, res, n, sse, sigma: Math.sqrt(sse / (n - 2)), t: b / se, p: tTwoSided(Math.abs(b / se), n - 2) };
   }
   function corrCI(r, n, level) { // Fisher z
     const z = Math.atanh(r), se = 1 / Math.sqrt(n - 3), q = normQuantile(1 - (1 - level) / 2);
@@ -574,9 +587,159 @@ SD of individual responses ≈ √(SD training² − SD control²)</div>
     return out;
   }
 
-  const api = { mulberry32, lgamma, ibeta, normPdf, normCdf, normQuantile, tCdf, tQuantile, nctCdf, dConfidenceInterval,
+  // ---------- S-values and posterior probabilities ----------
+  // S-value (Shannon information, surprisal): s = -log2(p) bits (Greenland 2019; Rafi and Greenland 2020).
+  function sValue(p) { return p > 0 ? -Math.log2(Math.min(1, p)) : Infinity; }
+  // Posterior probability of the alternative from a Bayes factor BF10 and a prior probability for it.
+  function postProb(bf10, prior) { if (prior === undefined) prior = 0.5; const o = bf10 * prior / (1 - prior); return Number.isFinite(o) ? o / (1 + o) : 1; }
+
+  // ---------- Bayes factor for a correlation ----------
+  // log 2F1(a, b; c; z) for 0 <= z < 1 and a, b, c > 0, summing the series in log space
+  function log2F1(a, b, c, z) {
+    if (z <= 0) return 0;
+    const lz = Math.log(z); let lt = 0, mx = 0, acc = 1;
+    for (let k = 0; k < 500000; k++) {
+      const ratio = (a + k) * (b + k) / ((c + k) * (k + 1)) * z;
+      lt += Math.log(ratio);
+      if (lt > mx) { acc = acc * Math.exp(mx - lt) + 1; mx = lt; } else acc += Math.exp(lt - mx);
+      if (lt - mx < -40 && ratio < 1) break;
+    }
+    return mx + Math.log(acc);
+  }
+  // Exact likelihood (Ly, Verhagen and Wagenmakers 2016) with a stretched beta prior of width kappa on rho.
+  // kappa = 1/3 is the default ("medium") of correlationBF in R's BayesFactor package.
+  function bfCorrelation(r, n, kappa) {
+    if (kappa === undefined) kappa = 1 / 3;
+    if (n < 3 || !Number.isFinite(r)) return NaN;
+    r = Math.max(-0.999999, Math.min(0.999999, r));
+    const al = 1 / kappa, lbeta = lgamma(al) + lgamma(al) - lgamma(2 * al), lc = 2 * (lgamma(n / 2) - lgamma((n - 1) / 2));
+    const M = 1000, h = 2 / M; let s = 0;
+    for (let i = 1; i < M; i++) {
+      const rho = -1 + i * h, w = i % 2 ? 4 : 2, l1r = Math.log(1 - rho * rho);
+      const lp = (al - 1) * l1r + (1 - 2 * al) * Math.LN2 - lbeta, base = (n - 1) / 2 * l1r + lp, z = r * r * rho * rho;
+      s += w * (Math.exp(base + log2F1((n - 1) / 2, (n - 1) / 2, 0.5, z)) + 2 * r * rho * Math.exp(base + lc + log2F1(n / 2, n / 2, 1.5, z)));
+    }
+    return s * h / 3;
+  }
+
+  // ---------- Bayes factors for linear models (regression, ANOVA, ANCOVA) ----------
+  // g-priors as in Rouder and Morey (2012) and Rouder et al. (2012), matching R's BayesFactor:
+  // a fixed factor enters as a - 1 orthonormal contrasts with effects ~ N(0, g sigma^2 I);
+  // a continuous covariate has beta ~ N(0, g sigma^2 N (X'X)^-1); each g ~ inverse-gamma(1/2, r^2 / 2).
+  // Defaults in BayesFactor: r = 1/2 for fixed factors, sqrt(2)/4 for continuous covariates.
+  function chol(A) { const n = A.length, L = A.map(r => r.map(() => 0));
+    for (let i = 0; i < n; i++) for (let j = 0; j <= i; j++) { let s = A[i][j]; for (let k = 0; k < j; k++) s -= L[i][k] * L[j][k];
+      if (i === j) { if (s <= 0) return null; L[i][i] = Math.sqrt(s); } else L[i][j] = s / L[j][j]; }
+    return L; }
+  function cholSolve(L, b) { const n = L.length, y = new Array(n), x = new Array(n);
+    for (let i = 0; i < n; i++) { let s = b[i]; for (let k = 0; k < i; k++) s -= L[i][k] * y[k]; y[i] = s / L[i][i]; }
+    for (let i = n - 1; i >= 0; i--) { let s = y[i]; for (let k = i + 1; k < n; k++) s -= L[k][i] * x[k]; x[i] = s / L[i][i]; }
+    return x; }
+  function orthContrasts(a) { // a x (a - 1), orthonormal columns orthogonal to the vector of ones
+    const Q = []; for (let i = 0; i < a; i++) Q.push(new Array(a - 1).fill(0));
+    for (let j = 1; j < a; j++) { const nrm = Math.sqrt(j * (j + 1)); for (let i = 0; i < j; i++) Q[i][j - 1] = 1 / nrm; Q[j][j - 1] = -j / nrm; }
+    return Q; }
+  function lmSuff(X, y) { // centred cross-products of the predictors (rows of X) and the outcome
+    const N = y.length, k = X[0].length, mx = new Array(k).fill(0); let my = 0;
+    X.forEach((row, i) => { row.forEach((v, j) => mx[j] += v / N); my += y[i] / N; });
+    const S = Array.from({ length: k }, () => new Array(k).fill(0)), b = new Array(k).fill(0); let yy = 0;
+    X.forEach((row, i) => { const yc = y[i] - my; yy += yc * yc;
+      for (let j = 0; j < k; j++) { const xj = row[j] - mx[j]; b[j] += xj * yc; for (let l = 0; l <= j; l++) S[j][l] += xj * (row[l] - mx[l]); } });
+    for (let j = 0; j < k; j++) for (let l = 0; l < j; l++) S[l][j] = S[j][l];
+    return { S, b, yy, N, k };
+  }
+  function logBFg(suff, blocks, gs) { // log BF (model v intercept only) at fixed g values, one per block
+    const { S, b, yy, N, k } = suff, Ginv = Array.from({ length: k }, () => new Array(k).fill(0)); let logdetG = 0;
+    blocks.forEach((B, bi) => { const g = gs[bi], c = B.cols;
+      if (B.type === 'fixed') { c.forEach(j => { Ginv[j][j] = 1 / g; }); logdetG += c.length * Math.log(g); }
+      else { const Sb = c.map(j => c.map(l => S[j][l])), Lb = chol(Sb); let ld = 0; Lb.forEach((r, i) => ld += 2 * Math.log(r[i]));
+        c.forEach((j, a) => c.forEach((l, bb) => { Ginv[j][l] = Sb[a][bb] / (g * N); })); logdetG += c.length * Math.log(g * N) - ld; } });
+    const M = S.map((r, i) => r.map((v, j) => v + Ginv[i][j])), L = chol(M); if (!L) return -Infinity;
+    let logdetM = 0; L.forEach((r, i) => logdetM += 2 * Math.log(r[i]));
+    const q = cholSolve(L, b).reduce((s, v, i) => s + v * b[i], 0);
+    return -0.5 * (logdetG + logdetM) - (N - 1) / 2 * Math.log(Math.max(1e-300, 1 - q / yy));
+  }
+  function logPriorU(u, r) { return Math.log(r) - 0.5 * Math.log(2 * Math.PI) - 0.5 * u - r * r / (2 * Math.exp(u)); } // IG(1/2, r^2/2) on g = e^u, times the Jacobian
+  // Bayes factor of a linear model against the intercept-only model; blocks: [{ cols, type: 'fixed' | 'cont', r }]
+  function bfLinear(suff, blocks) {
+    const U0 = -18, U1 = 18;
+    if (blocks.length === 1) {
+      const M = 1200, h = (U1 - U0) / M, v = new Float64Array(M + 1); let mx = -Infinity;
+      for (let i = 0; i <= M; i++) { const u = U0 + i * h; v[i] = logBFg(suff, blocks, [Math.exp(u)]) + logPriorU(u, blocks[0].r); if (v[i] > mx) mx = v[i]; }
+      let s = 0; for (let i = 0; i <= M; i++) s += (i === 0 || i === M ? 1 : i % 2 ? 4 : 2) * Math.exp(v[i] - mx);
+      return Math.exp(mx) * s * h / 3;
+    }
+    const M = 160, h = (U1 - U0) / M, w = i => (i === 0 || i === M ? 1 : i % 2 ? 4 : 2), v = new Float64Array((M + 1) * (M + 1));
+    const p1 = [], p2 = []; for (let i = 0; i <= M; i++) { p1.push(logPriorU(U0 + i * h, blocks[0].r)); p2.push(logPriorU(U0 + i * h, blocks[1].r)); }
+    let mx = -Infinity, idx = 0;
+    for (let i = 0; i <= M; i++) for (let j = 0; j <= M; j++) { const val = logBFg(suff, blocks, [Math.exp(U0 + i * h), Math.exp(U0 + j * h)]) + p1[i] + p2[j]; v[idx++] = val; if (val > mx) mx = val; }
+    let s = 0; idx = 0; for (let i = 0; i <= M; i++) for (let j = 0; j <= M; j++) s += w(i) * w(j) * Math.exp(v[idx++] - mx);
+    return Math.exp(mx) * s * h * h / 9;
+  }
+
+  // ---------- mixed-effects model for balanced repeated measures ----------
+  // k athletes each measured at the same m times t. Fits (1) one regression ignoring athletes, (2) random intercepts,
+  // (3) random intercepts and slopes. Balanced designs give closed-form REML estimates; when the slope model is at a
+  // boundary (a singular fit), the REML criterion is maximised numerically with D = LL'. Checked against lme4/lmerTest.
+  function nelderMead(f, x0, step, iters) {
+    const n = x0.length; let P = [x0.slice()]; for (let i = 0; i < n; i++) { const q = x0.slice(); q[i] += step[i]; P.push(q); }
+    let F = P.map(f);
+    for (let it = 0; it < iters; it++) {
+      const ord = F.map((v, i) => i).sort((a, b) => F[a] - F[b]); P = ord.map(i => P[i]); F = ord.map(i => F[i]);
+      const c = new Array(n).fill(0); for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) c[j] += P[i][j] / n;
+      const pt = a => c.map((v, j) => v + a * (P[n][j] - v)), xr = pt(-1), fr = f(xr);
+      if (fr < F[0]) { const xe = pt(-2), fe = f(xe); if (fe < fr) { P[n] = xe; F[n] = fe; } else { P[n] = xr; F[n] = fr; } }
+      else if (fr < F[n - 1]) { P[n] = xr; F[n] = fr; }
+      else { const xc = pt(0.5), fc = f(xc); if (fc < F[n]) { P[n] = xc; F[n] = fc; } else { for (let i = 1; i <= n; i++) { P[i] = P[i].map((v, j) => P[0][j] + 0.5 * (v - P[0][j])); F[i] = f(P[i]); } } }
+      if (Math.abs(F[n] - F[0]) < 1e-12 * (1 + Math.abs(F[0]))) break;
+    }
+    return { x: P[0], f: F[0] };
+  }
+  function mixedGrowth(Y, t) {
+    const k = Y.length, m = t.length, N = k * m, tb = mean(t), Stt = t.reduce((s, v) => s + (v - tb) ** 2, 0);
+    const ybar = Y.map(r => mean(r)), b = Y.map(r => r.reduce((s, v, j) => s + (t[j] - tb) * v, 0) / Stt);
+    const bbar = mean(b), ygr = mean(ybar);
+    let ssOwn = 0, ssRI = 0, ssOLS = 0;
+    Y.forEach((r, i) => r.forEach((v, j) => { const tc = t[j] - tb;
+      ssOwn += (v - ybar[i] - b[i] * tc) ** 2; ssRI += (v - ybar[i] - bbar * tc) ** 2; ssOLS += (v - ygr - bbar * tc) ** 2; }));
+    const test = (est, se, df) => { const tt = est / se, q = tQuantile(0.975, df); return { est, se, df, t: tt, p: Math.min(1, tTwoSided(Math.abs(tt), df)), ci: [est - q * se, est + q * se] }; };
+    const ols = test(bbar, Math.sqrt(ssOLS / (N - 2) / (k * Stt)), N - 2);
+    ols.sigma = Math.sqrt(ssOLS / (N - 2));
+    // random intercepts (centred time): within-athlete residual variance, and between-athlete variance of the means
+    const s2RI = ssRI / (N - k - 1), vYbar = k > 1 ? sd(ybar) ** 2 : 0, su2 = vYbar - s2RI / m;
+    const ri = su2 > 0 ? test(bbar, Math.sqrt(s2RI / (k * Stt)), N - k - 1) : Object.assign({}, ols);
+    ri.sdLevel = Math.sqrt(Math.max(0, su2)); ri.sigma = su2 > 0 ? Math.sqrt(s2RI) : ols.sigma; ri.singular = !(su2 > 0);
+    // random intercepts and slopes: per-athlete estimates (level at the mean time, slope) have covariance D + sigma^2 C
+    const s2 = ssOwn / (k * (m - 2)), C = [1 / m, 1 / Stt], W = [[0, 0], [0, 0]];
+    ybar.forEach((y, i) => { const d = [y - ygr, b[i] - bbar]; W[0][0] += d[0] * d[0]; W[0][1] += d[0] * d[1]; W[1][1] += d[1] * d[1]; }); W[1][0] = W[0][1];
+    let D = [[W[0][0] / (k - 1) - s2 * C[0], W[0][1] / (k - 1)], [W[0][1] / (k - 1), W[1][1] / (k - 1) - s2 * C[1]]], sig2 = s2;
+    const regular = D[0][0] > 0 && D[1][1] > 0 && D[0][0] * D[1][1] - D[0][1] ** 2 > 0;
+    if (!regular) { // REML on the boundary: minimise -2 log restricted likelihood over sigma and D = LL'
+      const SSw = ssOwn, nll = q => { const v2 = Math.exp(2 * q[0]);
+        const V = [[q[1] * q[1] + v2 * C[0], q[1] * q[2]], [q[1] * q[2], q[2] * q[2] + q[3] * q[3] + v2 * C[1]]], det = V[0][0] * V[1][1] - V[0][1] ** 2;
+        if (!(det > 0)) return 1e300;
+        return k * (m - 2) * Math.log(v2) + SSw / v2 + (k - 1) * Math.log(det) + (V[1][1] * W[0][0] - 2 * V[0][1] * W[0][1] + V[0][0] * W[1][1]) / det; };
+      const l11 = Math.sqrt(Math.max(D[0][0], 1e-4)), best = [[0, 0], [0, 1]].map(([c, z]) => {
+        const start = [0.5 * Math.log(s2), l11, z ? 0 : D[0][1] / l11, Math.sqrt(Math.max(D[1][1], 1e-4))];
+        let r = nelderMead(nll, start, [0.1, 0.3 * l11 + 0.1, 0.1, 0.05], 3000); r = nelderMead(nll, r.x, [0.05, 0.1, 0.05, 0.02], 3000); return r; })
+        .sort((a, c) => a.f - c.f)[0].x;
+      sig2 = Math.exp(2 * best[0]);
+      D = [[best[1] ** 2, best[1] * best[2]], [best[1] * best[2], best[2] ** 2 + best[3] ** 2]];
+    }
+    const rs = test(bbar, Math.sqrt((D[1][1] + sig2 * C[1]) / k), k - 1);
+    rs.D = D; rs.sigma = Math.sqrt(sig2); rs.singular = !regular;
+    rs.sdLevel = Math.sqrt(Math.max(0, D[0][0])); rs.sdSlope = Math.sqrt(Math.max(0, D[1][1]));
+    // partial pooling: each athlete's level and slope shrunk towards the average
+    const shrink = ybar.map((yi, i) => { const dv = [yi - ygr, b[i] - bbar], A = [[D[0][0] + sig2 * C[0], D[0][1]], [D[1][0], D[1][1] + sig2 * C[1]]];
+      const det = A[0][0] * A[1][1] - A[0][1] * A[1][0], w = [(A[1][1] * dv[0] - A[0][1] * dv[1]) / det, (-A[1][0] * dv[0] + A[0][0] * dv[1]) / det];
+      return { level: ygr + D[0][0] * w[0] + D[0][1] * w[1], slope: bbar + D[1][0] * w[0] + D[1][1] * w[1] }; });
+    return { k, m, N, tb, Stt, ybar, b, bbar, ygr, ols, ri, rs, shrink };
+  }
+
+  const api = { mulberry32, lgamma, ibeta, normPdf, normCdf, normQuantile, tCdf, tTwoSided, tQuantile, nctCdf, dConfidenceInterval,
     betaPdf, betaLogPdf, betaCdf, betaQuantile, betaHDI,
-    fCdf, jzsBF10, tPdf, mean, sd, quantile, linreg, corrCI, bivariate };
+    fCdf, jzsBF10, tPdf, mean, sd, quantile, linreg, corrCI, bivariate,
+    sValue, postProb, bfCorrelation, orthContrasts, lmSuff, bfLinear, mixedGrowth };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Stats = api;
 })(typeof window !== 'undefined' ? window : this);
 
@@ -613,7 +776,8 @@ SD of individual responses ≈ √(SD training² − SD control²)</div>
     [21, 'E', 't21-regression.html', 'Regression'],
     [22, 'E', 't22-anova-ancova.html', 'ANOVA and ANCOVA'],
     [23, 'E', 't23-individual-responses.html', 'Repeated measures and individual responses'],
-    [24, 'E', 't24-injury-outcomes.html', 'Injuries and other yes/no outcomes']
+    [24, 'E', 't24-injury-outcomes.html', 'Injuries and other yes/no outcomes'],
+    [25, 'E', 't25-mixed-models.html', 'Mixed-effects (multilevel) models']
   ].map(([n, part, file, name]) => ({ n, part, file, name }));
 
   const $ = (s, r) => (r || document).querySelector(s);
@@ -630,7 +794,7 @@ SD of individual responses ≈ √(SD training² − SD control²)</div>
     const prev = TOPICS.find(t => t.n === here - 1), next = TOPICS.find(t => t.n === here + 1);
     if (here) {
       if (prev) { const a = document.createElement('a'); a.href = prev.file; a.textContent = `← Topic ${prev.n}`; a.title = prev.name; nav.appendChild(a); }
-      const all = document.createElement('a'); all.href = 'index.html'; all.textContent = 'All 24 topics'; nav.appendChild(all);
+      const all = document.createElement('a'); all.href = 'index.html'; all.textContent = 'All 25 topics'; nav.appendChild(all);
       if (next) { const a = document.createElement('a'); a.href = next.file; a.textContent = `Topic ${next.n} →`; a.title = next.name; nav.appendChild(a); }
     }
     el.append(home, nav);
@@ -839,7 +1003,56 @@ SD of individual responses ≈ √(SD training² − SD control²)</div>
   // evenly spaced grid
   function grid(lo, hi, n) { const out = new Array(n + 1); for (let i = 0; i <= n; i++) out[i] = lo + (hi - lo) * i / n; return out; }
 
-  root.UI = { TOPICS, PARTS, $, header, predict, bindPair, fmt, pct, chart, grid, niceTicks };
+
+  // ---------- evidence panel: p-value, S-value, Bayes factor and posterior probability ----------
+  // evidence(container, { title, priorNote }) returns { update(rows) }; rows: [{ label, p, bf, primary }] (bf may be null;
+  // the sentence under the table describes the row marked primary, otherwise the first row with a Bayes factor).
+  function fmtP(p) { return !Number.isFinite(p) ? '–' : p < 0.001 ? '< 0.001' : fmt(p, 3); }
+  function fmtBF(bf) {
+    if (bf === null || bf === undefined || Number.isNaN(bf)) return '–';
+    if (bf >= 1e6) return '> 1,000,000'; if (bf < 1e-6) return '< 0.000001';
+    if (bf >= 1000) return Math.round(bf).toLocaleString('en-GB');
+    if (bf >= 10) return fmt(bf, 1); if (bf >= 0.1) return fmt(bf, 2); return bf.toPrecision(2);
+  }
+  function fmtS(s) { return !Number.isFinite(s) ? '> 50' : s > 50 ? '> 50' : fmt(s, 1); }
+  function evidence(container, opts) {
+    opts = opts || {};
+    const S = root.Stats, box = document.createElement('div'); box.className = 'evidence';
+    const id = 'ev' + Math.random().toString(36).slice(2, 8);
+    box.innerHTML = `<div class="ev-head"><h3>${opts.title || 'p-value, S-value and Bayes factor'}</h3>
+      <label class="ev-prior" for="${id}">Prior probability of H₁ <input type="range" id="${id}" min="0.05" max="0.95" step="0.05" value="0.5"><output>50%</output></label></div>
+      <div class="tablewrap"><table class="data"><caption class="sr-only">p-value, S-value, Bayes factor and posterior probability for each test</caption>
+      <thead><tr><th>Test</th><th>p</th><th>S-value (bits)</th><th>BF<sub>10</sub></th><th>P(H₁ | data)</th></tr></thead><tbody></tbody></table></div>
+      <p class="ev-read"></p><p class="hint ev-note"></p>`;
+    container.appendChild(box);
+    const slider = box.querySelector('input'), out = box.querySelector('output');
+    box.querySelector('.ev-note').innerHTML = (opts.priorNote ? opts.priorNote + ' ' : '') +
+      'H₀ is the zero-effect model for the test shown; H₁ is the alternative described by its effect-size prior. P(H₁ | data) is a probability within this two-model comparison, not the probability of a worthwhile benefit. This slider changes prior model odds; it does not change the effect-size prior or BF₁₀. S = −log<sub>2</sub>(p) measures surprise against the tested model and its assumptions (Greenland, 2019); it re-expresses p and adds no independent evidence.';
+    let last = [];
+    function render() {
+      const prior = parseFloat(slider.value); out.textContent = pct(prior, 0);
+      box.querySelector('tbody').innerHTML = last.map(r => {
+        const s = S.sValue(r.p), hasBF = r.bf !== null && r.bf !== undefined && !Number.isNaN(r.bf);
+        return `<tr><td>${r.label}</td><td>${fmtP(r.p)}</td><td>${fmtS(s)}</td><td>${hasBF ? fmtBF(r.bf) : '–'}</td><td>${hasBF ? pct(S.postProb(r.bf, prior), 1) : '–'}</td></tr>`;
+      }).join('');
+      const r = last.find(x => x.primary) || last.find(x => x.bf !== null && x.bf !== undefined && !Number.isNaN(x.bf)) || last[0];
+      if (!r) { box.querySelector('.ev-read').textContent = ''; return; }
+      const s = S.sValue(r.p), heads = Math.round(Math.min(s, 50));
+      let txt = `${r.label}: p ${r.p < 0.001 ? '<' : '='} ${fmtP(r.p).replace('< ', '')}, so S = ${fmtS(s)} bits. ` +
+        (heads >= 1 ? `Under the null model and its assumptions, a result this extreme would be about as surprising as ${s > 50 ? 'more than 50' : heads} head${heads === 1 ? '' : 's'} in a row from a fair coin. ` : 'That is little surprise against the null model and its assumptions. ');
+      if (r.bf !== null && r.bf !== undefined && !Number.isNaN(r.bf)) {
+        const bf = r.bf;
+        txt += bf >= 1 ? `BF₁₀ = ${fmtBF(bf)}: the data are ${fmtBF(bf)} times as likely if there is an effect (as described by the prior) as if there is none. `
+                       : `BF₁₀ = ${fmtBF(bf)}: the data are ${fmtBF(1 / bf)} times as likely if there is no effect as if there is one (as described by the prior). `;
+        txt += `Starting from a ${pct(prior, 0)} prior probability of H₁, P(H₁ | data) is ${pct(S.postProb(bf, prior), 1)}.`;
+      }
+      box.querySelector('.ev-read').textContent = txt;
+    }
+    slider.addEventListener('input', render);
+    return { update(rows) { last = rows; render(); } };
+  }
+
+  root.UI = { TOPICS, PARTS, $, header, predict, bindPair, fmt, pct, chart, grid, niceTicks, evidence, fmtP, fmtBF, fmtS };
   document.addEventListener('DOMContentLoaded', header);
 })(window);
 
@@ -922,13 +1135,13 @@ window.LAB_ACTIVITIES = {"23": {"image": "club", "aim": "Separate apparent respo
   $('.check-answer').addEventListener('click', () => { const choice = $('input[name="lab-check"]:checked'); $('.activity-feedback').textContent = choice ? (choice.value === '0' ? 'Correct. ' : 'Reconsider. ') + data.explanation : 'Choose an answer first.'; });
   let captures = [];
   function capture() {
-    const controls = [...document.querySelectorAll('input,select')].filter(e => !box.contains(e) && e.type !== 'range' && !['button','submit','hidden'].includes(e.type) && !(e.type === 'radio' && !e.checked)).map(e => {
+    const controls = [...document.querySelectorAll('input,select')].filter(e => !box.contains(e) && !(e.type === 'range' && document.getElementById(e.id + '-n')) && !['button','submit','hidden'].includes(e.type) && !(e.type === 'radio' && !e.checked)).map(e => {
       const id = e.id?.replace(/-n$/, ''), label = e.getAttribute('aria-label') || (id && document.querySelector(`label[for="${id}"]`)?.textContent) || e.name || e.id;
       const value = e.type === 'checkbox' ? (e.checked ? 'on' : 'off') : e.tagName === 'SELECT' ? e.selectedOptions[0]?.textContent : e.value;
       return `${label}: ${value}`;
     });
-    const results = [...document.querySelectorAll('.readout,.statement,#tbl')].filter(e => !box.contains(e)).map(e => e.innerText.trim().replace(/\n+/g, ' | ')).filter(Boolean);
-    const note = `Comparison ${captures.length + 1}\n${controls.join('\n')}\nResults:\n${results.join('\n')}\nObservation: ${$('#lab-notes').value.trim() || '(add your interpretation in the notebook)'}`;
+    const results = [...document.querySelectorAll('.readout,.statement,#tbl,.evidence,#fpTbl,#fpStatus')].filter(e => !box.contains(e)).map(e => e.innerText.trim().replace(/\n+/g, ' | ')).filter(Boolean);
+    const note = `Comparison ${captures.length + 1}\n${controls.join('\n')}\nSimulation record: ${document.body.dataset.simulationRecord || 'see settings above'}\nResults:\n${results.join('\n')}\nObservation: ${$('#lab-notes').value.trim() || '(add your interpretation in the notebook)'}`;
     captures.push(note); const div = document.createElement('div'); div.className = 'observation'; div.textContent = note; $('.observations').append(div); $('.notebook-status').textContent = `${captures.length} comparison${captures.length === 1 ? '' : 's'} captured. Download to keep them.`;
   }
   $('.capture-result').addEventListener('click', capture);
